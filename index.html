@@ -1,0 +1,2970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HashCoin Clicker — Mine Bitcoin By Hand</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --panel: #11171f;
+    --panel-2: #161d27;
+    --border: #1f2a38;
+    --gold: #f7931a;
+    --gold-dim: #b8690d;
+    --text: #e6edf3;
+    --muted: #7a8693;
+    --green: #3fb950;
+    --red: #f85149;
+    --purple: #a371f7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+    background: var(--bg);
+    color: var(--text);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* subtle background grid */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(247, 147, 26, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(247, 147, 26, 0.03) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    display: grid;
+    grid-template-columns: 280px 1fr 340px;
+    height: 100vh;
+    z-index: 1;
+  }
+
+  /* ============ LEFT: STATS ============ */
+  .stats-panel {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-symbol {
+    width: 36px;
+    height: 36px;
+    background: var(--gold);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: #000;
+    font-weight: bold;
+    font-size: 22px;
+  }
+
+  .logo-text {
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+  .logo-sub {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+  }
+
+  .stat-block {
+    margin-bottom: 18px;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-size: 22px;
+    color: var(--gold);
+    font-weight: bold;
+    word-break: break-all;
+  }
+  .stat-value.small { font-size: 14px; color: var(--text); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.red { color: var(--red); }
+
+  .stat-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .divider {
+    border-top: 1px solid var(--border);
+    margin: 20px 0;
+  }
+
+  .achievements-section h3 {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  .achievement {
+    padding: 8px 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    opacity: 0.4;
+    transition: opacity 0.3s, border-color 0.3s;
+  }
+  .achievement.unlocked {
+    opacity: 1;
+    border-color: var(--gold-dim);
+  }
+  .achievement-name {
+    font-weight: bold;
+    color: var(--gold);
+    font-size: 12px;
+    margin-bottom: 2px;
+  }
+  .achievement.unlocked .achievement-name { color: var(--gold); }
+  .achievement-desc {
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  /* ============ CENTER: CLICKER ============ */
+  .clicker-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .balance-display {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .balance-amount {
+    font-size: 64px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 30px rgba(247, 147, 26, 0.3);
+    letter-spacing: -2px;
+  }
+  .balance-label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-top: 4px;
+  }
+
+  .hash-button {
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #ffb347, var(--gold) 60%, var(--gold-dim));
+    border: 4px solid #2a1a05;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    color: #1a0d00;
+    font-weight: bold;
+    box-shadow:
+      0 0 80px rgba(247, 147, 26, 0.4),
+      inset 0 -10px 30px rgba(0, 0, 0, 0.3),
+      inset 0 10px 30px rgba(255, 255, 255, 0.2);
+    transition: transform 0.08s ease-out, box-shadow 0.08s;
+    position: relative;
+    font-family: inherit;
+  }
+  .hash-button:hover {
+    box-shadow:
+      0 0 100px rgba(247, 147, 26, 0.6),
+      inset 0 -10px 30px rgba(0, 0, 0, 0.3),
+      inset 0 10px 30px rgba(255, 255, 255, 0.2);
+  }
+  .hash-button:active {
+    transform: scale(0.95);
+  }
+  .hash-button-symbol {
+    font-size: 120px;
+    line-height: 1;
+  }
+
+  .hash-output {
+    margin-top: 24px;
+    width: 100%;
+    max-width: 640px;
+    min-height: 130px;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .hash-output-label {
+    color: var(--gold);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .hash-feed-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-family: 'SF Mono', monospace;
+    font-size: 10px;
+  }
+  .hash-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    transition: opacity 0.4s;
+  }
+  .hash-line .src {
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+    font-size: 13px;
+  }
+  .hash-line .val {
+    color: var(--green);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+  .hash-line.age-1 .val { color: rgba(63, 185, 80, 0.7); }
+  .hash-line.age-2 .val { color: rgba(63, 185, 80, 0.45); }
+  .hash-line.age-3 .val { color: rgba(63, 185, 80, 0.25); }
+  .hash-line.age-4 .val { color: rgba(63, 185, 80, 0.12); }
+  .hash-line.age-5 .val { color: rgba(63, 185, 80, 0.06); }
+
+  /* Floating click numbers */
+  .float-text {
+    position: absolute;
+    color: var(--gold);
+    font-weight: bold;
+    font-size: 18px;
+    pointer-events: none;
+    animation: floatUp 1.2s ease-out forwards;
+    text-shadow: 0 0 10px rgba(247, 147, 26, 0.8);
+    white-space: nowrap;
+  }
+  @keyframes floatUp {
+    0% { transform: translateY(0) scale(0.8); opacity: 1; }
+    100% { transform: translateY(-100px) scale(1.2); opacity: 0; }
+  }
+  .float-text.crit {
+    color: #ffd700;
+    font-size: 28px;
+    text-shadow: 0 0 18px gold, 0 0 30px rgba(255, 215, 0, 0.6);
+    animation: floatUp 1.6s ease-out forwards;
+  }
+  .float-text.megacrit {
+    color: #ff6bd6;
+    font-size: 40px;
+    font-weight: 900;
+    text-shadow: 0 0 24px gold, 0 0 48px #ff6bd6;
+    animation: floatUp 2.2s ease-out forwards;
+    letter-spacing: -1px;
+  }
+  .hash-button.crit-flash {
+    animation: critFlash 0.4s ease-out;
+  }
+  @keyframes critFlash {
+    0%   { box-shadow: 0 0 120px gold, inset 0 0 30px rgba(255, 215, 0, 0.6); transform: scale(1.04); }
+    100% { box-shadow: 0 0 80px rgba(247, 147, 26, 0.4), inset 0 -10px 30px rgba(0, 0, 0, 0.3), inset 0 10px 30px rgba(255, 255, 255, 0.2); transform: scale(1); }
+  }
+  .hash-button.megacrit-flash {
+    animation: megaCritFlash 0.7s ease-out;
+  }
+  @keyframes megaCritFlash {
+    0%, 30% { box-shadow: 0 0 200px gold, 0 0 100px #ff6bd6, inset 0 0 60px rgba(255, 105, 180, 0.5); transform: scale(1.1) rotate(-3deg); }
+    100% { box-shadow: 0 0 80px rgba(247, 147, 26, 0.4), inset 0 -10px 30px rgba(0, 0, 0, 0.3), inset 0 10px 30px rgba(255, 255, 255, 0.2); transform: scale(1) rotate(0); }
+  }
+
+  /* News ticker */
+  .ticker {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.4);
+    border-top: 1px solid var(--border);
+    padding: 8px 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .ticker-content {
+    display: inline-block;
+    animation: scroll 180s linear infinite;
+    font-size: 11px;
+    color: var(--muted);
+    padding-left: 100%;
+  }
+  .ticker:hover .ticker-content { animation-play-state: paused; }
+  .ticker:hover { background: rgba(0, 0, 0, 0.6); }
+  .ticker-item {
+    margin-right: 60px;
+  }
+  .ticker-item .gold { color: var(--gold); }
+  .ticker-item .green { color: var(--green); }
+  .ticker-item .red { color: var(--red); }
+  @keyframes scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-100%); }
+  }
+
+  /* ============ RIGHT: UPGRADES ============ */
+  .shop-panel {
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+  }
+
+  .shop-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+    z-index: 10;
+  }
+  .shop-tab {
+    flex: 1;
+    padding: 14px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: color 0.2s, background 0.2s;
+    border-bottom: 2px solid transparent;
+  }
+  .shop-tab:hover { color: var(--text); }
+  .shop-tab.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+    background: var(--panel-2);
+  }
+
+  .shop-content {
+    padding: 12px;
+  }
+
+  .upgrade {
+    display: grid;
+    grid-template-columns: 44px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .upgrade:hover:not(.locked):not(.too-expensive) {
+    border-color: var(--gold);
+    transform: translateX(-2px);
+    box-shadow: -2px 0 0 var(--gold);
+  }
+  .upgrade.too-expensive {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .upgrade.locked {
+    opacity: 0.3;
+    cursor: not-allowed;
+    filter: grayscale(1);
+  }
+  .upgrade.affordable {
+    border-color: var(--gold-dim);
+  }
+  .upgrade.purchased-once {
+    background: linear-gradient(90deg, rgba(247, 147, 26, 0.06), var(--panel-2));
+  }
+
+  .upgrade-icon {
+    width: 44px;
+    height: 44px;
+    background: var(--bg);
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    font-size: 24px;
+    border: 1px solid var(--border);
+  }
+
+  .upgrade-info {
+    min-width: 0;
+  }
+  .upgrade-name {
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .upgrade-desc {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.3;
+  }
+  .upgrade-meta {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .upgrade-cost {
+    font-size: 12px;
+    color: var(--gold);
+    font-weight: bold;
+    white-space: nowrap;
+  }
+  .upgrade-cost.cant-afford { color: var(--red); }
+  .upgrade-owned {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .section-header {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 16px 4px 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-header:first-child { margin-top: 0; }
+
+  /* Tooltip */
+  .tooltip {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    background: #000;
+    border: 1px solid var(--gold-dim);
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-size: 10px;
+    color: var(--text);
+    width: 200px;
+    margin-bottom: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+    z-index: 100;
+  }
+  .upgrade:hover .tooltip {
+    opacity: 1;
+  }
+
+  /* Reset button */
+  .reset-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 8px;
+    background: transparent;
+    border: 1px solid var(--red);
+    color: var(--red);
+    font-family: inherit;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.2s;
+  }
+  .reset-btn:hover {
+    background: rgba(248, 81, 73, 0.1);
+  }
+
+  /* Toast notifications */
+  .toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000;
+    pointer-events: none;
+  }
+  .toast {
+    background: var(--panel);
+    border: 1px solid var(--gold);
+    border-radius: 6px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-size: 12px;
+    min-width: 240px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    animation: slideIn 0.3s ease-out, fadeOut 0.5s ease-in 3.5s forwards;
+  }
+  .toast-title {
+    color: var(--gold);
+    font-weight: bold;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+  @keyframes slideIn {
+    from { transform: translateX(120%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes fadeOut {
+    to { opacity: 0; transform: translateX(120%); }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
+
+  /* Pulse for new upgrade */
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(247, 147, 26, 0.7); }
+    50% { box-shadow: 0 0 0 8px rgba(247, 147, 26, 0); }
+  }
+  .upgrade.pulse {
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  /* Energy meter (satire detail) */
+  .energy-meter {
+    margin-top: 10px;
+    padding: 8px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .energy-bar {
+    height: 6px;
+    background: var(--bg);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .energy-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), #fcd34d, var(--red));
+    transition: width 0.3s;
+  }
+
+  /* === FLOATING BONUSES (golden-bitcoin equivalents) === */
+  .bonus-spawn {
+    position: fixed;
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 36px;
+    cursor: pointer;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.55);
+    border: 2px solid currentColor;
+    animation: bonusBob 1.6s ease-in-out infinite, bonusFadeIn 0.3s ease-out;
+    filter: drop-shadow(0 0 24px currentColor);
+    transition: transform 0.15s;
+  }
+  .bonus-spawn:hover { transform: scale(1.2); }
+  .bonus-spawn.bonus-gold   { color: var(--gold); }
+  .bonus-spawn.bonus-cyan   { color: #67e8f9; }
+  .bonus-spawn.bonus-purple { color: var(--purple); }
+  .bonus-spawn.bonus-red    { color: var(--red); }
+  .bonus-spawn.expiring     { animation: bonusBob 0.4s ease-in-out infinite, bonusFadeOut 4s linear forwards; }
+  @keyframes bonusBob {
+    0%, 100% { transform: translateY(0) rotate(-8deg); }
+    50%      { transform: translateY(-10px) rotate(8deg); }
+  }
+  @keyframes bonusFadeIn {
+    from { opacity: 0; transform: scale(0.3); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes bonusFadeOut { to { opacity: 0; } }
+
+  /* === ACTIVE EFFECTS BAR === */
+  .active-effects {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    min-height: 28px;
+    margin-bottom: 16px;
+    max-width: 640px;
+  }
+  .effect-chip {
+    background: rgba(247, 147, 26, 0.12);
+    border: 1px solid var(--gold-dim);
+    border-radius: 14px;
+    padding: 4px 12px;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    animation: bonusFadeIn 0.3s;
+  }
+  .effect-chip.debuff {
+    background: rgba(248, 81, 73, 0.15);
+    border-color: var(--red);
+    color: var(--red);
+  }
+  .effect-chip .effect-time {
+    color: var(--muted);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .effect-chip.debuff .effect-time { color: rgba(248, 81, 73, 0.7); }
+
+  /* === SOLO MINE BUTTON === */
+  .solo-mine-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, var(--purple), #6e40c9);
+    border: 1px solid #6e40c9;
+    border-radius: 6px;
+    padding: 10px 18px;
+    color: white;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    z-index: 20;
+    box-shadow: 0 0 24px rgba(163, 113, 247, 0.35);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .solo-mine-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 32px rgba(163, 113, 247, 0.55);
+  }
+
+  /* === MODAL === */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    backdrop-filter: blur(6px);
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-content {
+    background: var(--panel);
+    border: 1px solid var(--gold);
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 560px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 60px rgba(247, 147, 26, 0.15);
+    animation: bonusFadeIn 0.25s;
+  }
+  .modal-title {
+    font-size: 14px;
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    margin: 6px 0 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+    line-height: 1.5;
+  }
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 22px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+  }
+  .modal-close:hover { color: var(--red); }
+
+  /* === SOLO MINE UI === */
+  .mine-difficulty-buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin: 0 0 16px;
+  }
+  .mine-diff-btn {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 8px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text);
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .mine-diff-btn:hover:not(:disabled) { border-color: var(--gold); }
+  .mine-diff-btn.selected {
+    border-color: var(--gold);
+    background: rgba(247, 147, 26, 0.1);
+  }
+  .mine-diff-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mine-diff-zeros {
+    font-size: 17px;
+    color: var(--gold);
+    font-weight: bold;
+    letter-spacing: -1px;
+  }
+  .mine-diff-label {
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+  .mine-info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 7px 0;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mine-info-row .label { color: var(--muted); }
+  .mine-info-row .value { color: var(--gold); font-weight: bold; font-family: monospace; }
+  .mine-start-btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--gold);
+    border: none;
+    border-radius: 6px;
+    color: #000;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    cursor: pointer;
+    margin-top: 16px;
+    transition: transform 0.1s, filter 0.1s;
+  }
+  .mine-start-btn:hover:not(:disabled) { filter: brightness(1.1); }
+  .mine-start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mine-start-btn.cancel { background: var(--red); color: white; }
+  .mine-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 16px 0 12px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+  }
+  .mine-stat { text-align: center; }
+  .mine-stat-label {
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .mine-stat-value {
+    font-size: 16px;
+    color: var(--gold);
+    font-weight: bold;
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .mine-output {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    font-family: 'SF Mono', monospace;
+    font-size: 10px;
+    color: var(--green);
+    max-height: 180px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .mine-output-line {
+    padding: 1px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mine-output-line.hit {
+    color: var(--gold);
+    background: rgba(247, 147, 26, 0.18);
+    padding: 5px 6px;
+    margin: 3px -4px;
+    border-radius: 3px;
+    font-weight: bold;
+    animation: hitFlash 0.8s;
+  }
+  @keyframes hitFlash {
+    0%   { background: var(--gold); color: #000; transform: scale(1.02); }
+    100% { background: rgba(247, 147, 26, 0.18); color: var(--gold); transform: scale(1); }
+  }
+
+  /* === FEED STATUS BADGE === */
+  .feed-status {
+    display: none;
+    margin-left: 8px;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    letter-spacing: 0.5px;
+    font-weight: bold;
+    vertical-align: middle;
+  }
+  .feed-status.slowed {
+    display: inline-block;
+    background: rgba(248, 81, 73, 0.15);
+    color: var(--red);
+    border: 1px solid var(--red);
+  }
+  .feed-status.paused {
+    display: inline-block;
+    background: var(--red);
+    color: #000;
+    animation: pulse 1s ease-in-out infinite;
+  }
+  .feed-status.boosted {
+    display: inline-block;
+    background: rgba(63, 185, 80, 0.15);
+    color: var(--green);
+    border: 1px solid var(--green);
+  }
+  .hash-output.paused { border-color: rgba(248, 81, 73, 0.5); }
+  .hash-output.slowed { border-color: rgba(248, 81, 73, 0.25); }
+  .hash-output.boosted { border-color: rgba(63, 185, 80, 0.4); }
+
+  /* === SETTINGS BUTTON & MODAL === */
+  .settings-btn {
+    width: 100%;
+    margin-top: 8px;
+    padding: 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .settings-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  .settings-section { margin-bottom: 20px; }
+  .settings-section-title {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-segments {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .seg-btn {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 4px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text);
+    text-align: center;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .seg-btn:hover { border-color: var(--gold); }
+  .seg-btn.selected {
+    border-color: var(--gold);
+    background: rgba(247, 147, 26, 0.12);
+  }
+  .seg-btn-label {
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--gold);
+  }
+  .seg-btn-sub {
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-row-label {
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .toggle-row-desc {
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .toggle-switch {
+    position: relative;
+    width: 44px;
+    height: 22px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: var(--muted);
+    border-radius: 50%;
+    transition: all 0.15s;
+  }
+  .toggle-switch.on {
+    background: rgba(247, 147, 26, 0.2);
+    border-color: var(--gold);
+  }
+  .toggle-switch.on::after {
+    left: 24px;
+    background: var(--gold);
+  }
+  .settings-actions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .settings-action-btn {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 8px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+  }
+  .settings-action-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .settings-action-btn.danger { border-color: rgba(248, 81, 73, 0.5); color: var(--red); }
+  .settings-action-btn.danger:hover { background: rgba(248, 81, 73, 0.1); border-color: var(--red); }
+
+  /* === STOCK MARKET BUTTON === */
+  .action-buttons {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    gap: 8px;
+    z-index: 20;
+  }
+  .solo-mine-btn, .stock-market-btn {
+    position: static;
+    background: linear-gradient(135deg, var(--purple), #6e40c9);
+    border: 1px solid #6e40c9;
+    border-radius: 6px;
+    padding: 10px 18px;
+    color: white;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    box-shadow: 0 0 24px rgba(163, 113, 247, 0.35);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .solo-mine-btn:hover, .stock-market-btn:hover { transform: translateY(-2px); }
+  .stock-market-btn {
+    background: linear-gradient(135deg, var(--green), #2da043);
+    border-color: #2da043;
+    box-shadow: 0 0 24px rgba(63, 185, 80, 0.35);
+  }
+  .stock-market-btn:hover { box-shadow: 0 0 32px rgba(63, 185, 80, 0.55); }
+
+  /* === STOCK MARKET UI === */
+  .stock-price-display {
+    text-align: center;
+    padding: 18px 0;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+  .stock-price {
+    font-size: 36px;
+    font-weight: bold;
+    color: var(--gold);
+    letter-spacing: -1px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stock-price-sub {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 2px;
+  }
+  .stock-change {
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+  }
+  .stock-change.up   { color: var(--green); }
+  .stock-change.down { color: var(--red); }
+  .stock-chart {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px;
+    margin-bottom: 12px;
+    height: 90px;
+    position: relative;
+  }
+  .stock-chart svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .stock-portfolio {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+  }
+  .stock-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stock-row .lbl { color: var(--muted); }
+  .stock-row .val { color: var(--text); font-weight: bold; }
+  .stock-row .val.up   { color: var(--green); }
+  .stock-row .val.down { color: var(--red); }
+  .stock-controls {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .stock-amount-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stock-amount-input:focus { outline: none; border-color: var(--gold); }
+  .stock-trade-btn {
+    border: none;
+    border-radius: 4px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: filter 0.1s;
+  }
+  .stock-trade-btn:hover:not(:disabled) { filter: brightness(1.15); }
+  .stock-trade-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .stock-trade-btn.buy  { background: var(--green); color: #000; }
+  .stock-trade-btn.sell { background: var(--red);   color: white; }
+  .stock-quick {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+  .stock-quick-btn {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 10px;
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+  .stock-quick-btn:hover { border-color: var(--gold); color: var(--gold); }
+</style>
+</head>
+<body>
+  <div class="app">
+    <!-- LEFT: STATS -->
+    <aside class="stats-panel">
+      <div class="logo">
+        <div class="logo-symbol">₿</div>
+        <div>
+          <div class="logo-text">HASHCOIN</div>
+          <div class="logo-sub">CLICKER v1.0</div>
+        </div>
+      </div>
+
+      <div class="stat-block">
+        <div class="stat-label">Per Click</div>
+        <div class="stat-value small" id="perClickStat">1 H</div>
+      </div>
+
+      <div class="stat-block">
+        <div class="stat-label">Hash Rate</div>
+        <div class="stat-value small green" id="hashRateStat">0 H/s</div>
+        <div class="stat-sub" id="hashRateCompare">vs Antminer S19: -∞%</div>
+      </div>
+
+      <div class="stat-block">
+        <div class="stat-label">Total Hashes Computed</div>
+        <div class="stat-value small" id="totalHashesStat">0</div>
+      </div>
+
+      <div class="stat-block">
+        <div class="stat-label">Total Clicks</div>
+        <div class="stat-value small" id="totalClicksStat">0</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="stat-block">
+        <div class="stat-label">Electricity Bill</div>
+        <div class="stat-value small red" id="electricityStat">$0.00</div>
+        <div class="stat-sub" id="electricitySub">0 kWh consumed</div>
+      </div>
+
+      <div class="stat-block">
+        <div class="stat-label">Carbon Emitted</div>
+        <div class="stat-value small red" id="carbonStat">0 kg CO₂</div>
+        <div class="stat-sub" id="carbonSub">≈ 0 trees</div>
+      </div>
+
+      <div class="energy-meter">
+        <div class="stat-label">Grid Strain</div>
+        <div class="energy-bar">
+          <div class="energy-fill" id="energyFill" style="width: 0%"></div>
+        </div>
+        <div class="stat-sub" id="strainSub" style="margin-top:6px">negligible load</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="achievements-section">
+        <h3>Achievements</h3>
+        <div id="achievementsList"></div>
+      </div>
+
+      <button class="settings-btn" id="settingsBtn">⚙ Settings</button>
+      <button class="reset-btn" id="resetBtn">⚠ Wipe Save Data</button>
+    </aside>
+
+    <!-- CENTER: CLICKER -->
+    <main class="clicker-panel">
+      <div class="action-buttons">
+        <button class="stock-market-btn" id="stockMarketBtn">📈 Market</button>
+        <button class="solo-mine-btn" id="soloMineBtn">🎯 Solo Mine</button>
+      </div>
+
+      <div class="balance-display">
+        <div class="balance-amount" id="balanceAmount">0</div>
+        <div class="balance-label">Hashes</div>
+      </div>
+
+      <div class="active-effects" id="activeEffects"></div>
+
+      <button class="hash-button" id="hashButton" aria-label="Compute hash">
+        <span class="hash-button-symbol">₿</span>
+      </button>
+
+      <div class="hash-output" id="hashOutput">
+        <div class="hash-output-label">
+          Live SHA-256 Feed
+          <span class="feed-status" id="feedStatus"></span>
+        </div>
+        <div class="hash-feed-lines" id="hashFeed">
+          <div class="hash-line"><span class="src">⏳</span><span class="val">click the button or buy a miner to start hashing</span></div>
+        </div>
+      </div>
+
+      <div class="ticker">
+        <div class="ticker-content" id="ticker"></div>
+      </div>
+    </main>
+
+    <!-- RIGHT: SHOP -->
+    <aside class="shop-panel">
+      <div class="shop-tabs">
+        <button class="shop-tab active" data-tab="miners">⛏ Miners</button>
+        <button class="shop-tab" data-tab="clicks">👆 Click Power</button>
+      </div>
+      <div class="shop-content" id="shopContent"></div>
+    </aside>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-title">
+        <span>⚙ Settings</span>
+        <button class="modal-close" id="settingsCloseBtn">×</button>
+      </div>
+      <div class="modal-subtitle">Tune the experience.</div>
+      <div id="settingsBody"></div>
+    </div>
+  </div>
+
+  <!-- Stock Market Modal -->
+  <div class="modal-overlay" id="stockModal">
+    <div class="modal-content">
+      <div class="modal-title">
+        <span>📈 HSHC Market</span>
+        <button class="modal-close" id="stockCloseBtn">×</button>
+      </div>
+      <div class="modal-subtitle">Speculate on the HashCoin token. Price reacts to world events. No, it isn't actually worth anything.</div>
+      <div id="stockBody"></div>
+    </div>
+  </div>
+
+  <!-- Solo Mine Modal -->
+  <div class="modal-overlay" id="soloMineModal">
+    <div class="modal-content">
+      <div class="modal-title">
+        <span>🎯 Solo Mine</span>
+        <button class="modal-close" id="soloMineCloseBtn">×</button>
+      </div>
+      <div id="soloMineBody"></div>
+    </div>
+  </div>
+
+<script>
+'use strict';
+
+// =====================================================
+// GAME STATE
+// =====================================================
+const state = {
+  hashes: 0,
+  totalHashes: 0,
+  totalClicks: 0,
+  perClick: 1,
+  perClickMult: 1,
+  miners: {},        // id -> count
+  clickUpgrades: {}, // id -> bool
+  achievements: {},  // id -> bool
+  activeEffects: [], // { type, value, expiresAt, label, emoji, kind }
+  nextBonusAt: 0,    // ms timestamp for next golden-bitcoin equivalent spawn
+  nextEventAt: 0,    // ms timestamp for next FBI raid / bull run / etc
+  settings: {
+    feedSpeedHz: 30,         // 5 | 30 | 60 | 'real'
+    bonusesEnabled: true,
+    eventsEnabled: true,
+  },
+  cheats: {},                // tracks which easter eggs have fired
+  stock: {
+    hshcOwned: 0,
+    avgBuyPrice: 0,
+    realized: 0,             // total H profit/loss from sells (for stats)
+    price: 100,              // current HSHC price in H
+    history: [100],          // last ~120 prices for sparkline
+  },
+  startTime: Date.now(),
+};
+
+// =====================================================
+// MINER DEFINITIONS  (cookie-clicker style buildings)
+// =====================================================
+const MINERS = [
+  { id: 'paper',    name: 'Pencil & Paper',     icon: '✏️', baseCost: 15,        rate: 0.1,       flavor: 'You compute SHA-256 by hand. Satoshi would be proud. Your wrist would not.' },
+  { id: 'abacus',   name: 'Abacus',             icon: '🧮', baseCost: 100,       rate: 1,         flavor: 'Bead-based hashing. Surprisingly portable. Surprisingly slow.' },
+  { id: 'calc',     name: 'TI-84 Calculator',   icon: '🔢', baseCost: 1100,      rate: 8,         flavor: 'Your high-school graphing calculator, repurposed for crypto.' },
+  { id: 'cpu',      name: 'Old Laptop',         icon: '💻', baseCost: 12000,     rate: 47,        flavor: 'How Satoshi mined the genesis block. Now obsolete in every conceivable way.' },
+  { id: 'gpu',      name: 'Gaming GPU',         icon: '🎮', baseCost: 130000,    rate: 260,       flavor: 'RTX 4090. Tells your roommate you "need it for school".' },
+  { id: 'fpga',     name: 'FPGA Array',         icon: '🔌', baseCost: 1400000,   rate: 1400,      flavor: 'Field-programmable. Briefly competitive in 2012.' },
+  { id: 'asic',     name: 'Antminer S19',       icon: '⛏️', baseCost: 20000000,  rate: 7800,      flavor: 'Sounds like a jet engine. Heats your bedroom to 95°F year-round.' },
+  { id: 'rig',      name: 'Mining Rig Rack',    icon: '🗄️', baseCost: 330000000, rate: 44000,     flavor: 'Stacked ASICs in a closet. Your landlord is asking questions.' },
+  { id: 'warehouse',name: 'Warehouse Farm',     icon: '🏭', baseCost: 5100000000, rate: 260000,   flavor: 'A converted warehouse in Kazakhstan. Pays taxes in vibes.' },
+  { id: 'hydro',    name: 'Hydropower Plant',   icon: '💧', baseCost: 75000000000, rate: 1600000, flavor: 'You dammed a river. The salmon are not happy.' },
+  { id: 'volcano',  name: 'Volcano Mining',     icon: '🌋', baseCost: 1000000000000, rate: 10000000, flavor: 'El Salvador\'s official monetary strategy. What could go wrong?' },
+  { id: 'nation',   name: 'Nation-State Op',    icon: '🏛️', baseCost: 14000000000000, rate: 65000000, flavor: 'Definitely not North Korea. Definitely not sanctions evasion.' },
+  { id: 'orbital',  name: 'Orbital Solar Array',icon: '🛰️', baseCost: 170000000000000, rate: 430000000, flavor: 'Space-based mining. Microwave-beamed power. Probably fine.' },
+  { id: 'dyson',    name: 'Dyson Swarm',        icon: '☀️', baseCost: 2100000000000000, rate: 2900000000, flavor: 'You encased the sun. Other civilizations are concerned.' },
+  { id: 'quantum',  name: 'Quantum Miner',      icon: '⚛️', baseCost: 26000000000000000, rate: 19000000000, flavor: 'Definitely doesn\'t break SHA-256. Definitely. Trust us.' },
+  { id: 'time',     name: 'Time Machine',       icon: '⏳', baseCost: 310000000000000000, rate: 130000000000, flavor: 'You go back to 2009 and mine. Future-you is now insanely rich. Past-you ruined causality.' },
+];
+
+const COST_MULT = 1.15;
+
+// =====================================================
+// CLICK UPGRADES (one-time purchases)
+// =====================================================
+const CLICK_UPGRADES = [
+  { id: 'keyboard',   name: 'Mechanical Keyboard', icon: '⌨️', cost: 100,             effect: 'plus', value: 1,  desc: '+1 hash per click. Cherry MX Blues for maximum clackiness.' },
+  { id: 'twohands',   name: 'Use Both Hands',      icon: '🙌', cost: 500,             effect: 'mult', value: 2,  desc: '×2 click power. Revolutionary ergonomic discovery.' },
+  { id: 'macro',      name: 'Macro Script',        icon: '📜', cost: 5000,            effect: 'mult', value: 2,  desc: '×2 click power. Technically against the ToS. Don\'t tell anyone.' },
+  { id: 'caffeine',   name: 'Caffeine IV',         icon: '☕', cost: 50000,           effect: 'mult', value: 2,  desc: '×2 click power. Direct vein delivery. Your doctor would not approve.' },
+  { id: 'adderall',   name: 'Off-Label Adderall',  icon: '💊', cost: 500000,          effect: 'mult', value: 3,  desc: '×3 click power. Focus is a hell of a drug.' },
+  { id: 'crowd',      name: 'Mechanical Turk',     icon: '👥', cost: 5000000,         effect: 'mult', value: 3,  desc: '×3 click power. You pay strangers $0.001/click. Beautiful.' },
+  { id: 'cyborg',     name: 'Cybernetic Implants', icon: '🦾', cost: 50000000,        effect: 'mult', value: 4,  desc: '×4 click power. Elon\'s chip is in your motor cortex. He\'s reading your thoughts.' },
+  { id: 'ai',         name: 'AI Click Assistant',  icon: '🤖', cost: 500000000,       effect: 'mult', value: 5,  desc: '×5 click power. The AI is wondering why it\'s doing this.' },
+  { id: 'godhand',    name: 'Hand of God',         icon: '🖐️', cost: 5000000000,      effect: 'mult', value: 10, desc: '×10 click power. You\'ve transcended human clicking.' },
+  { id: 'multiverse', name: 'Multiverse Clicker',  icon: '🌌', cost: 50000000000,     effect: 'mult', value: 25, desc: '×25 click power. Every you across infinite universes clicks in unison.' },
+];
+
+// =====================================================
+// ACHIEVEMENTS
+// =====================================================
+const ACHIEVEMENTS = [
+  { id: 'first',      name: 'Genesis Click',         desc: 'Compute your first hash',           check: s => s.totalHashes >= 1 },
+  { id: 'click100',   name: 'Carpal Tunnel',         desc: 'Click 100 times manually',          check: s => s.totalClicks >= 100 },
+  { id: 'click1000',  name: 'RSI Diagnosis',         desc: 'Click 1,000 times',                 check: s => s.totalClicks >= 1000 },
+  { id: 'firstMiner', name: 'Automation Achieved',   desc: 'Buy your first auto-miner',         check: s => Object.values(s.miners).some(c => c > 0) },
+  { id: 'gpu',        name: 'Gamer Repurposed',     desc: 'Buy a Gaming GPU',                  check: s => (s.miners.gpu || 0) >= 1 },
+  { id: 'firstAsic',  name: 'Real Hardware',         desc: 'Buy an Antminer S19',               check: s => (s.miners.asic || 0) >= 1 },
+  { id: 'hash1k',     name: 'Kilo-Hasher',          desc: 'Compute 1,000 total hashes',         check: s => s.totalHashes >= 1000 },
+  { id: 'hash1m',     name: 'Mega-Hasher',          desc: 'Compute 1 million total hashes',     check: s => s.totalHashes >= 1000000 },
+  { id: 'hash1b',     name: 'Giga-Hasher',          desc: 'Compute 1 billion total hashes',     check: s => s.totalHashes >= 1000000000 },
+  { id: 'volcano',    name: 'Bukele\'s Bestie',     desc: 'Mine with a volcano',                check: s => (s.miners.volcano || 0) >= 1 },
+  { id: 'dyson',      name: 'Stellar Engineer',     desc: 'Build a Dyson Swarm',                check: s => (s.miners.dyson || 0) >= 1 },
+  { id: 'quantum',    name: 'P = NP?',              desc: 'Buy a Quantum Miner',                check: s => (s.miners.quantum || 0) >= 1 },
+  { id: 'time',       name: 'Grandfather Paradox',  desc: 'Build a Time Machine',               check: s => (s.miners.time || 0) >= 1 },
+  { id: 'planet',     name: 'Planetary Threat',     desc: 'Emit 1 ton of CO₂',                  check: s => carbonKg(s) >= 1000 },
+  { id: 'environment',name: 'War Crime',            desc: 'Emit 1,000 tons of CO₂',             check: s => carbonKg(s) >= 1000000 },
+  { id: 'firstCrit',  name: 'Critical Strike',      desc: 'Land your first 10× click crit',     check: s => s.cheats && s.cheats._anyCrit },
+  { id: 'megaCrit',   name: 'Cosmic Alignment',     desc: 'Land a 100× MEGA crit (0.1% odds)',  check: s => s.cheats && s.cheats._anyMegaCrit },
+  // — secret achievements (name hidden until unlocked) —
+  { id: 'konami',     name: 'Konami Master',     secret: true, desc: 'Old habits die hard.',          check: s => s.cheats && s.cheats.konami },
+  { id: 'satoshiName',name: 'Said His Name',     secret: true, desc: 'He heard you.',                 check: s => s.cheats && s.cheats.satoshiName },
+  { id: 'satoshiTap', name: 'Where Is He?',      secret: true, desc: 'You found him in plain sight.', check: s => s.cheats && s.cheats.satoshiTap },
+];
+
+// =====================================================
+// BONUSES (originals — not "golden cookies"; these spawn
+// somewhere on screen and you click them before they expire)
+// =====================================================
+const BONUSES = [
+  { id: 'pizza',   icon: '🍕', name: "Laszlo's Pizza",   color: 'gold',   weight: 25, effect: { type: 'lumpsum',   value: 30 },           flavor: '+30s of production. Worth 10,000 BTC in 2010.' },
+  { id: 'whale',   icon: '🐋', name: 'Whale Sighting',   color: 'cyan',   weight: 22, effect: { type: 'clickmult', value: 7, duration: 30 }, flavor: '7× click power for 30s. Big fin energy.' },
+  { id: 'diamond', icon: '💎', name: 'Diamond Hands',    color: 'purple', weight: 18, effect: { type: 'prodmult',  value: 2, duration: 60 }, flavor: '2× production for 60s. NEVER SELL.' },
+  { id: 'moon',    icon: '🚀', name: 'To The Moon',      color: 'gold',   weight: 15, effect: { type: 'lumpsum',   value: 90 },           flavor: '+90s of production. Number went up.' },
+  { id: 'satoshi', icon: '🥷', name: 'Satoshi Sighting', color: 'purple', weight: 10, effect: { type: 'prodmult',  value: 5, duration: 30 }, flavor: '5× production for 30s. He vanished again.' },
+  { id: 'rug',     icon: '🪤', name: 'Rug Pull',         color: 'red',    weight: 10, effect: { type: 'penalty',   value: 0.85 },          flavor: 'Lose 15% of your balance. The dev is gone.' },
+];
+
+// =====================================================
+// RANDOM EVENTS (FBI raids, ETF approvals, bull runs)
+// Trigger automatically — no click required
+// =====================================================
+const EVENTS = [
+  // bad
+  { id: 'fbi',   emoji: '🚔', name: 'FBI Raid',          desc: 'Warehouse seized. No mining for 30s.',     kind: 'debuff', effect: { type: 'prodmult', value: 0,    duration: 30 } },
+  { id: 'china', emoji: '🇨🇳', name: 'China Bans Crypto', desc: 'Again. Production halved for 60s.',        kind: 'debuff', effect: { type: 'prodmult', value: 0.5,  duration: 60 } },
+  { id: 'power', emoji: '⚡', name: 'Power Outage',       desc: 'Grid couldn\'t take it. Mining paused.',   kind: 'debuff', effect: { type: 'prodmult', value: 0,    duration: 20 } },
+  { id: 'sec',   emoji: '📑', name: 'SEC Subpoena',       desc: 'Legal fees. -5% of your balance.',          kind: 'debuff', effect: { type: 'penalty',  value: 0.95 } },
+  { id: 'fire',  emoji: '🔥', name: 'Datacenter Fire',    desc: 'Production at 25% for 45s.',                kind: 'debuff', effect: { type: 'prodmult', value: 0.25, duration: 45 } },
+  { id: 'heat',  emoji: '🌡️', name: 'Heat Wave',          desc: 'Miners throttling. Production halved.',     kind: 'debuff', effect: { type: 'prodmult', value: 0.5,  duration: 40 } },
+  { id: 'audit', emoji: '🧾', name: 'IRS Tax Audit',      desc: 'You can\'t spell IRS without "regret".',    kind: 'debuff', effect: { type: 'penalty',  value: 0.92 } },
+  // good
+  { id: 'bull',  emoji: '🐂', name: 'Bull Run',           desc: 'NUMBER GO UP. 3× production for 60s.',      kind: 'buff',   effect: { type: 'prodmult', value: 3,    duration: 60 } },
+  { id: 'elon',  emoji: '🐦', name: 'Elon Tweeted',       desc: 'BTC pumping. Bonus lump of hashes.',         kind: 'buff',   effect: { type: 'lumpsum',  value: 30 } },
+  { id: 'etf',   emoji: '✅', name: 'ETF Approved',       desc: 'Wall Street finally caved. Huge bonus.',     kind: 'buff',   effect: { type: 'lumpsum',  value: 120 } },
+  { id: 'usb',   emoji: '💾', name: 'Lost USB Found',     desc: 'Some guy\'s 2011 wallet. Score!',            kind: 'buff',   effect: { type: 'lumpsum',  value: 45 } },
+  { id: 'fork',  emoji: '🍴', name: 'Hard Fork Airdrop',  desc: 'Free coins from a contentious split.',       kind: 'buff',   effect: { type: 'lumpsum',  value: 60 } },
+];
+
+// =====================================================
+// SOLO MINE difficulty tiers
+// Now uses target SOLVE TIME instead of fixed zero-count.
+// The required leading-zeros are recomputed every time you open the modal,
+// based on your current hashrate. So INSANE is always ~30 min of mining,
+// whether you're at 100 H/s or 100 GH/s.
+// =====================================================
+const SOLO_DIFFICULTIES = [
+  { name: 'EASY',   targetSec: 3    },
+  { name: 'MEDIUM', targetSec: 30   },
+  { name: 'HARD',   targetSec: 300  },  // 5 min
+  { name: 'INSANE', targetSec: 1800 },  // 30 min
+];
+
+// =====================================================
+// NEWS TICKER
+// =====================================================
+const TICKER_ITEMS = [
+  '<span class="gold">BTC</span> $67,420 <span class="green">+2.4%</span>',
+  '<span class="gold">ETH</span> $3,200 <span class="red">-1.8%</span>',
+  'BREAKING: Crypto bro discovers electricity costs money',
+  'El Salvador adds 3 volcanoes to mining portfolio',
+  'New ASIC heats entire Brooklyn neighborhood',
+  '<span class="gold">DOGE</span> $0.42 <span class="green">+696%</span>',
+  'Study: Bitcoin uses more energy than Argentina',
+  'Quantum researcher pretends nothing\'s wrong',
+  'Glacier melts to reveal forgotten hardware wallet',
+  '"Just one more upgrade," says man clicking for 14 hours',
+  'Reminder: It\'s not too late to mine the genesis block',
+  '<span class="red">RUG ALERT</span> Latest memecoin developer is your cousin',
+  'Mining rig achieves sentience, demands rights',
+  'Climate scientists weep into their console.log',
+  '<span class="gold">HSHC</span> $0.0001 <span class="green">+0.0001%</span>',
+  'Local man\'s electricity bill exceeds his salary',
+  'Antarctica researcher discovers buried mining farm',
+  'AI agent files for unionization',
+  '<span class="gold">BREAKING</span> Anon Reddit user discovers economics',
+  'DAO collapses; members "shocked" and "definitely not in a cult"',
+  'Web3 startup pivots to AI for fourth time this quarter',
+  'Cryptobro: "this time is genuinely different I promise"',
+  'Mom asks what bitcoin actually is; son cannot answer',
+  'Scientists confirm: that is, in fact, a lot of energy',
+  '<span class="red">PSA</span> Your seed phrase is not "password123"',
+  'Layer 2 announces Layer 3 to fix Layer 2',
+  '<span class="green">UPGRADE</span> Network reaches new all-time-high in confusion',
+  'Local clicker game becomes self-aware, files DMCA on itself',
+  '<span class="gold">REMINDER</span> The blockchain remembers your trades. All of them.',
+  'Famous crypto Twitter account turns out to be 14-year-old',
+  '"I told you so" cited as world\'s top altcoin',
+];
+
+// =====================================================
+// REACTIVE TICKER HEADLINES — these reference your save state.
+// Each has a check() that returns either falsy (skip) or the headline text.
+// =====================================================
+const REACTIVE_HEADLINES = [
+  s => (s.miners.dyson    || 0) > 0 && '<span class="gold">⚡</span> Local hobbyist encases sun for personal use',
+  s => (s.miners.time     || 0) > 0 && '<span class="gold">⚡</span> BREAKING: Time-traveler caught violating causality',
+  s => (s.miners.volcano  || 0) > 0 && '<span class="gold">⚡</span> El Salvador citizen reports "yet more lava"',
+  s => (s.miners.nation   || 0) > 0 && '<span class="gold">⚡</span> CIA confirms it was definitely not them',
+  s => (s.miners.quantum  || 0) > 0 && '<span class="gold">⚡</span> Cryptographer found weeping in datacenter parking lot',
+  s => (s.miners.orbital  || 0) > 0 && '<span class="gold">⚡</span> Microwave beam from orbit "definitely not weaponizable"',
+  s => (s.miners.hydro    || 0) > 0 && '<span class="gold">⚡</span> Salmon population mysteriously declines near user\'s dam',
+  s => (s.miners.asic     || 0) >= 5 && '<span class="gold">⚡</span> Neighbors file noise complaint; jet-engine sounds 24/7',
+  s => s.totalClicks      > 10000 && `<span class="gold">⚡</span> Person has clicked button ${fmtInt(s.totalClicks)} times; says it's "fine"`,
+  s => carbonKg(s)        > 10000 && `<span class="red">⚡</span> Atmospheric CO₂ rises ${fmt(carbonKg(s)/1000)}t this quarter`,
+  s => electricityCost(s) > 100   && `<span class="red">⚡</span> Local user racks up $${fmt(electricityCost(s))} power bill`,
+  s => s.hashes           > 1e9   && `<span class="gold">⚡</span> Wallet hits ${fmt(s.hashes)} H — IRS "extremely interested"`,
+  s => Object.values(s.miners).reduce((a,b)=>a+(b||0),0) > 50 && '<span class="gold">⚡</span> Mining operation now visible from low earth orbit',
+  s => Object.keys(s.clickUpgrades || {}).length >= 5 && '<span class="gold">⚡</span> Person\'s clicking finger reaches "biomechanical anomaly" status',
+  s => s.cheats && s.cheats.konami && '<span class="purple">⚡</span> Anonymous user definitely did not cheat',
+  s => s.cheats && s.cheats.satoshiName && '<span class="purple">⚡</span> Forbidden name uttered. Discord servers in chaos.',
+  s => gridStrain(s) > 0.9 && '<span class="red">⚡ ALERT</span> Power grid operators "concerned" about user\'s setup',
+];
+
+// =====================================================
+// CLICK FLAVORS — occasionally replaces the boring "+N" float
+// =====================================================
+const CLICK_FLAVORS = [
+  '+{n} nice',
+  '+{n} ✨',
+  '+{n} 💪',
+  '+{n} 🙏',
+  'CRUNCH +{n}',
+  '+{n} 🥷',
+  '+{n} (real)',
+  '+{n} sha-256!',
+  '+{n} 👌',
+  '+{n} clack',
+];
+
+// Toast for hitting specific click counts — pure flavor, no mechanics
+const CLICK_MILESTONES = {
+  250:    'your hand is warming up',
+  750:    'officially a clicker veteran',
+  2100:   'that\'s 0.0001 BTC in click-form',
+  7500:   'bro. touch grass.',
+  21000:  '0.001 BTC. only 999 more to a single coin.',
+  50000:  'you should be billing for this',
+  100000: '100k clicks. wow. OK.',
+  314159: 'a tasty number',
+  500000: 'a hospital visit awaits',
+};
+
+// =====================================================
+// HELPERS
+// =====================================================
+function fmt(n) {
+  if (n < 0.01 && n > 0) return n.toExponential(2);
+  if (n < 1000) return n.toFixed(n < 10 ? 2 : 0);
+  const suffixes = ['', 'k', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc', 'UDc', 'DDc'];
+  const tier = Math.min(suffixes.length - 1, Math.floor(Math.log10(n) / 3));
+  return (n / Math.pow(10, tier * 3)).toFixed(2) + suffixes[tier];
+}
+
+function fmtInt(n) {
+  if (n < 1e6) return Math.floor(n).toLocaleString();
+  return fmt(n);
+}
+
+function minerCost(miner, owned) {
+  return Math.ceil(miner.baseCost * Math.pow(COST_MULT, owned));
+}
+
+function totalHashRate(s) {
+  let rate = 0;
+  for (const m of MINERS) {
+    rate += (s.miners[m.id] || 0) * m.rate;
+  }
+  return rate;
+}
+
+// Satire stats
+function kWhUsed(s) {
+  // Pretend each hash takes some absurd amount of joules. Real bitcoin mining is ~kWh/TH.
+  // For comedy: 1 hash = 0.00001 kWh from clicks, and miners use more.
+  let kwh = s.totalClicks * 0.0001; // human clicks burn calories
+  for (const m of MINERS) {
+    const owned = s.miners[m.id] || 0;
+    // Each miner consumes electricity at a rate proportional to its hashrate × age
+    const elapsedSec = (Date.now() - s.startTime) / 1000;
+    kwh += owned * m.rate * elapsedSec * 1e-5;
+  }
+  return kwh;
+}
+
+function carbonKg(s) {
+  return kWhUsed(s) * 0.4; // ~0.4 kg CO2 per kWh
+}
+
+function electricityCost(s) {
+  return kWhUsed(s) * 0.15; // $0.15/kWh
+}
+
+// =====================================================
+// SHA-256 (real, via Web Crypto)
+// =====================================================
+async function sha256Hex(input) {
+  const buf = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// =====================================================
+// ACTIVE EFFECTS  (temporary buffs/debuffs from bonuses & events)
+// =====================================================
+function effectiveProductionMult(s) {
+  let m = 1;
+  for (const e of s.activeEffects) if (e.type === 'prodmult') m *= e.value;
+  return m;
+}
+function effectiveClickMult(s) {
+  let m = 1;
+  for (const e of s.activeEffects) if (e.type === 'clickmult') m *= e.value;
+  return m;
+}
+function addEffect({ type, value, durationMs, label, emoji, kind }) {
+  state.activeEffects.push({
+    type, value,
+    expiresAt: durationMs ? Date.now() + durationMs : null,
+    label, emoji,
+    kind: kind || (type === 'prodmult' && value < 1 ? 'debuff' : 'buff'),
+  });
+  renderActiveEffects();
+}
+function cleanupEffects() {
+  const now = Date.now();
+  const before = state.activeEffects.length;
+  state.activeEffects = state.activeEffects.filter(e => !e.expiresAt || e.expiresAt > now);
+  if (state.activeEffects.length !== before) renderActiveEffects();
+}
+
+// Apply a bonus/event payload (the {type,value,duration} object)
+function applyEffectPayload(name, emoji, payload, kindHint) {
+  switch (payload.type) {
+    case 'lumpsum': {
+      // Reward = (current effective production rate) × seconds
+      // For brand-new players with no miners, fall back to per-click value
+      const rate = totalHashRate(state) * effectiveProductionMult(state);
+      const fallback = state.perClick * state.perClickMult;
+      const amount = Math.max(rate, fallback) * payload.value;
+      state.hashes += amount;
+      state.totalHashes += amount;
+      toast(name, `+${fmt(amount)} H instant`);
+      break;
+    }
+    case 'clickmult':
+      addEffect({ type: 'clickmult', value: payload.value, durationMs: payload.duration * 1000, label: name, emoji, kind: 'buff' });
+      toast(name, `×${payload.value} click for ${payload.duration}s`);
+      break;
+    case 'prodmult': {
+      const kind = kindHint || (payload.value < 1 ? 'debuff' : 'buff');
+      addEffect({ type: 'prodmult', value: payload.value, durationMs: payload.duration * 1000, label: name, emoji, kind });
+      const verb = payload.value === 0 ? 'paused' : `×${payload.value}`;
+      toast(name, `production ${verb} for ${payload.duration}s`);
+      break;
+    }
+    case 'penalty': {
+      const lost = state.hashes * (1 - payload.value);
+      state.hashes *= payload.value;
+      toast(name, `-${fmt(lost)} H`);
+      break;
+    }
+  }
+  // Stock market reacts to recognizable event names
+  reactStockToEvent(name);
+  renderStats();
+  save();
+}
+
+function renderActiveEffects() {
+  const container = document.getElementById('activeEffects');
+  if (!container) return;
+  const now = Date.now();
+
+  // Unique key per effect — used to diff DOM instead of rebuilding it,
+  // so the chip's fade-in animation only fires once when it first appears.
+  const keyOf = (e) => `${e.type}|${e.value}|${e.expiresAt || 'perm'}|${e.label || ''}`;
+  const currentKeys = new Set(state.activeEffects.map(keyOf));
+
+  // Remove chips for effects that have expired
+  for (const chip of Array.from(container.children)) {
+    if (!currentKeys.has(chip.dataset.key)) chip.remove();
+  }
+
+  // Index remaining chips by key for lookup
+  const existing = {};
+  for (const chip of container.children) existing[chip.dataset.key] = chip;
+
+  for (const e of state.activeEffects) {
+    const key = keyOf(e);
+    let label;
+    if (e.type === 'clickmult')      label = `${e.value}× click`;
+    else if (e.type === 'prodmult')  label = e.value === 0 ? 'paused' : `${e.value}× prod`;
+    else                              label = e.label;
+    const remaining = e.expiresAt ? Math.max(0, (e.expiresAt - now) / 1000) : 0;
+    const time = e.expiresAt ? `${Math.ceil(remaining)}s` : '';
+
+    let chip = existing[key];
+    if (!chip) {
+      chip = document.createElement('div');
+      chip.className = 'effect-chip' + (e.kind === 'debuff' ? ' debuff' : '');
+      chip.dataset.key = key;
+      const labelEl = document.createElement('span');
+      labelEl.className = 'effect-label';
+      labelEl.textContent = `${e.emoji || ''} ${label}`;
+      const timeEl = document.createElement('span');
+      timeEl.className = 'effect-time';
+      chip.appendChild(labelEl);
+      chip.appendChild(document.createTextNode(' '));
+      chip.appendChild(timeEl);
+      container.appendChild(chip);
+    }
+    // Only update the countdown text — does NOT re-trigger the animation
+    chip.querySelector('.effect-time').textContent = time;
+  }
+}
+
+// =====================================================
+// BONUS SPAWNS (floating clickable popups)
+// =====================================================
+function pickWeighted(arr) {
+  const total = arr.reduce((s, x) => s + x.weight, 0);
+  let r = Math.random() * total;
+  for (const x of arr) { if (r < x.weight) return x; r -= x.weight; }
+  return arr[arr.length - 1];
+}
+
+function maybeSpawnBonus() {
+  if (!state.settings.bonusesEnabled) {
+    state.nextBonusAt = Date.now() + 60000; // re-check later
+    return;
+  }
+  if (Date.now() < state.nextBonusAt) return;
+  if (document.querySelectorAll('.bonus-spawn').length > 0) return;
+  if (document.getElementById('soloMineModal').classList.contains('active')) return;
+  if (document.getElementById('settingsModal').classList.contains('active')) return;
+  if (state.totalHashes < 50) {
+    state.nextBonusAt = Date.now() + 30000;
+    return;
+  }
+  const bonus = pickWeighted(BONUSES);
+  spawnBonus(bonus);
+  state.nextBonusAt = Date.now() + 60000 + Math.random() * 120000; // 1-3 min until next
+}
+
+function spawnBonus(bonus) {
+  const el = document.createElement('div');
+  el.className = 'bonus-spawn bonus-' + bonus.color;
+  el.innerHTML = bonus.icon;
+  el.title = bonus.name + ' — ' + bonus.flavor;
+  // Random position within the clicker panel
+  const panel = document.querySelector('.clicker-panel');
+  const rect = panel.getBoundingClientRect();
+  const margin = 80;
+  const x = rect.left + margin + Math.random() * Math.max(50, rect.width - margin * 2);
+  const y = rect.top + margin + Math.random() * Math.max(50, rect.height - margin * 2 - 100);
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.addEventListener('click', () => {
+    applyEffectPayload(bonus.name + ' ' + bonus.icon, bonus.icon, bonus.effect);
+    el.remove();
+  });
+  document.body.appendChild(el);
+  setTimeout(() => { if (el.parentNode) el.classList.add('expiring'); }, 10000);
+  setTimeout(() => { if (el.parentNode) el.remove(); }, 14000);
+}
+
+// =====================================================
+// RANDOM EVENTS (toast-only, no click required)
+// =====================================================
+function maybeSpawnEvent() {
+  if (!state.settings.eventsEnabled) {
+    state.nextEventAt = Date.now() + 60000; // re-check later
+    return;
+  }
+  if (Date.now() < state.nextEventAt) return;
+  if (state.totalHashes < 200) {
+    state.nextEventAt = Date.now() + 60000;
+    return;
+  }
+  // GRID STRAIN BIAS — at high strain, events lean toward power-related disasters.
+  // 50% strain → 0% bias; 100% strain → 75% chance to force power/fire/heat.
+  const strain = gridStrain(state);
+  const biasChance = Math.max(0, (strain - 0.5) * 1.5);
+  let ev;
+  if (Math.random() < biasChance) {
+    const powerEvents = ['power', 'fire', 'heat'];
+    ev = EVENTS.find(e => e.id === powerEvents[Math.floor(Math.random() * powerEvents.length)]);
+  } else {
+    ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+  }
+  // Don't crush low-balance players with penalty events
+  if (ev.effect.type === 'penalty' && state.hashes < 1000) {
+    state.nextEventAt = Date.now() + 30000;
+    return;
+  }
+  applyEffectPayload(ev.name + ' ' + ev.emoji, ev.emoji, ev.effect, ev.kind);
+  state.nextEventAt = Date.now() + 90000 + Math.random() * 180000; // 1.5-4.5 min
+}
+
+// Mini-brownouts at very high strain — independent of the main event timer
+let _lastBrownoutCheck = Date.now();
+function maybeBrownout() {
+  if (!state.settings.eventsEnabled) return;
+  const now = Date.now();
+  if (now - _lastBrownoutCheck < 18000) return; // check every 18s
+  _lastBrownoutCheck = now;
+  const strain = gridStrain(state);
+  if (strain < 0.9) return;
+  // 0% chance at 90% strain, 60% chance at 100% strain
+  if (Math.random() > (strain - 0.9) * 6) return;
+  applyEffectPayload('Brownout ⚡', '⚡', { type: 'prodmult', value: 0, duration: 5 + Math.random() * 6 });
+}
+
+// =====================================================
+// LIVE SHA-256 FEED (shows clicks + miner outputs)
+// =====================================================
+const hashFeed = [];
+const HASH_FEED_SIZE = 6;
+
+function addHashFeed(source, hash) {
+  hashFeed.unshift({ source, hash, ts: Date.now() });
+  if (hashFeed.length > HASH_FEED_SIZE) hashFeed.pop();
+  renderHashFeed();
+}
+
+// Build the feed line elements ONCE — subsequent updates only change text.
+// Avoids the per-render innerHTML cost (matters at high hashrates).
+let feedLineEls = null;
+function initHashFeed() {
+  const container = document.getElementById('hashFeed');
+  if (!container) return;
+  container.innerHTML = '';
+  feedLineEls = [];
+  for (let i = 0; i < HASH_FEED_SIZE; i++) {
+    const line = document.createElement('div');
+    line.className = 'hash-line';
+    if (i > 0) line.classList.add('age-' + Math.min(5, i));
+    const src = document.createElement('span');
+    src.className = 'src';
+    const val = document.createElement('span');
+    val.className = 'val';
+    line.appendChild(src);
+    line.appendChild(val);
+    container.appendChild(line);
+    feedLineEls.push({ src, val });
+  }
+  // Placeholder until first hash arrives
+  feedLineEls[0].src.textContent = '⏳';
+  feedLineEls[0].val.textContent = 'click the button or buy a miner to start hashing';
+}
+
+function renderHashFeed() {
+  if (!feedLineEls) return;
+  for (let i = 0; i < HASH_FEED_SIZE; i++) {
+    const entry = hashFeed[i];
+    const els = feedLineEls[i];
+    if (entry) {
+      els.src.textContent = entry.source;
+      els.val.textContent = entry.hash;
+    } else {
+      els.src.textContent = '';
+      els.val.textContent = '';
+    }
+  }
+}
+let _feedCounter = 0;
+
+// Self-scheduling feed tick: tries to match the EFFECTIVE hashrate
+// (so paused/slowed events visibly slow the feed), but caps at the user's
+// chosen speed setting and backs off if recent ticks ran over budget.
+const FEED_MAX_INTERVAL = 1500;  // 1 hash per 1.5s when nothing is mining
+const FEED_PERF_BUDGET = 8;      // ms — typical tick should fit in this
+const _feedTickTimes = [];
+
+function feedMinInterval() {
+  const hz = state.settings.feedSpeedHz;
+  if (hz === 'real') return 16;        // 60 Hz hard cap to keep the browser sane
+  return Math.max(8, 1000 / hz);
+}
+
+async function minerFeedTick() {
+  const tickStart = performance.now();
+  // Effective rate accounts for active buffs/debuffs (e.g. FBI raid → 0)
+  const rate = totalHashRate(state) * effectiveProductionMult(state);
+
+  if (rate > 0) {
+    // Weighted pick by hashrate contribution
+    let r = Math.random() * rate;
+    let picked = null;
+    for (const m of MINERS) {
+      const contrib = (state.miners[m.id] || 0) * m.rate;
+      if (contrib === 0) continue;
+      if (r < contrib) { picked = m; break; }
+      r -= contrib;
+    }
+    if (picked) {
+      const hash = await sha256Hex(picked.id + ':' + (++_feedCounter) + ':' + Math.random());
+      addHashFeed(picked.icon, hash);
+    }
+  }
+
+  // Sample tick time — used to detect perf dip
+  const elapsed = performance.now() - tickStart;
+  _feedTickTimes.push(elapsed);
+  if (_feedTickTimes.length > 30) _feedTickTimes.shift();
+  const avgTickTime = _feedTickTimes.reduce((a,b) => a + b, 0) / _feedTickTimes.length;
+
+  let nextDelay;
+  if (rate === 0) {
+    nextDelay = FEED_MAX_INTERVAL;
+  } else {
+    const ideal = 1000 / rate;
+    const perfFloor = avgTickTime > FEED_PERF_BUDGET ? avgTickTime * 3 : 0;
+    nextDelay = Math.max(feedMinInterval(), perfFloor, ideal);
+    nextDelay = Math.min(FEED_MAX_INTERVAL, nextDelay);
+  }
+  setTimeout(minerFeedTick, nextDelay);
+}
+
+// Update the feed badge ("PAUSED" / "50%" / "3× boost") based on active effects
+function updateFeedStatus() {
+  const status = document.getElementById('feedStatus');
+  const output = document.getElementById('hashOutput');
+  if (!status || !output) return;
+  const mult = effectiveProductionMult(state);
+  output.classList.remove('paused', 'slowed', 'boosted');
+  status.classList.remove('paused', 'slowed', 'boosted');
+  if (mult === 0) {
+    status.classList.add('paused');
+    status.textContent = '◼ PAUSED';
+    output.classList.add('paused');
+  } else if (mult < 1) {
+    status.classList.add('slowed');
+    status.textContent = `↓ ${Math.round(mult * 100)}%`;
+    output.classList.add('slowed');
+  } else if (mult > 1) {
+    status.classList.add('boosted');
+    status.textContent = `↑ ${mult}× BOOST`;
+    output.classList.add('boosted');
+  } else {
+    status.textContent = '';
+  }
+}
+
+// =====================================================
+// SOLO MINE MINIGAME
+// =====================================================
+const soloMineState = {
+  difficulty: 0,    // index into SOLO_DIFFICULTIES
+  active: false,
+  attempts: 0,
+  startTime: 0,
+  outputLines: [],
+};
+
+// Pick the number of leading zeros so expected solve time at the player's
+// current hashrate is close to the tier's target. Clamped to [1, 10].
+function diffZeros(diffIdx) {
+  const rate = Math.max(1, totalHashRate(state) * effectiveProductionMult(state));
+  const targetAttempts = rate * SOLO_DIFFICULTIES[diffIdx].targetSec;
+  // log16(x) = ln(x) / ln(16)
+  return Math.max(1, Math.min(10, Math.round(Math.log(targetAttempts) / Math.log(16))));
+}
+function diffExpectedAttempts(diffIdx) {
+  return Math.pow(16, diffZeros(diffIdx));
+}
+function soloMineCost(diffIdx) {
+  return Math.ceil(diffExpectedAttempts(diffIdx) * 0.25);
+}
+function soloMineReward(diffIdx) {
+  return Math.ceil(diffExpectedAttempts(diffIdx) * 4);
+}
+function soloMineEstimatedSec(diffIdx) {
+  const rate = Math.max(0.1, totalHashRate(state) * effectiveProductionMult(state));
+  return diffExpectedAttempts(diffIdx) / rate;
+}
+
+// Try to brute-force a real SHA-256 that starts with the target prefix.
+// Returns null if not found within budget — caller manufactures one for display.
+async function findRealHashWithPrefix(target, maxAttempts) {
+  let nonce = Math.floor(Math.random() * 1e9);
+  for (let i = 0; i < maxAttempts; i++) {
+    const hash = await sha256Hex('found-' + nonce++);
+    if (hash.startsWith(target)) return hash;
+    if (i % 1000 === 999) await new Promise(r => setTimeout(r, 0)); // yield
+  }
+  return null;
+}
+function manufactureMatchingHash(target) {
+  // Display-only fallback: prepend the target zeros to random hex.
+  // The "find" math has already been verified; this is just visual.
+  const tail = Array.from({ length: 64 - target.length }, () =>
+    Math.floor(Math.random() * 16).toString(16)
+  ).join('');
+  return target + tail;
+}
+
+function fmtTime(sec) {
+  if (sec < 1)    return sec.toFixed(2) + 's';
+  if (sec < 60)   return sec.toFixed(1) + 's';
+  if (sec < 3600) return (sec/60).toFixed(1) + 'm';
+  return (sec/3600).toFixed(1) + 'h';
+}
+
+function openSoloMine() {
+  document.getElementById('soloMineModal').classList.add('active');
+  renderSoloMine();
+}
+function closeSoloMine() {
+  if (soloMineState.active) cancelSoloMine();
+  document.getElementById('soloMineModal').classList.remove('active');
+}
+
+function renderSoloMine() {
+  const body = document.getElementById('soloMineBody');
+  const diffIdx = soloMineState.difficulty;
+  const cost = soloMineCost(diffIdx);
+  const reward = soloMineReward(diffIdx);
+  const canAfford = state.hashes >= cost;
+  const zeros = diffZeros(diffIdx);
+
+  body.innerHTML = `
+    <div class="modal-subtitle">Find a SHA-256 hash starting with N leading zeros — exactly how real Bitcoin mining works. Difficulty scales with your hashrate, so INSANE is always ~30 min away.</div>
+
+    <div class="mine-difficulty-buttons">
+      ${SOLO_DIFFICULTIES.map((d, i) => `
+        <button class="mine-diff-btn ${i === diffIdx ? 'selected' : ''}" data-diff="${i}" ${soloMineState.active ? 'disabled' : ''}>
+          <div class="mine-diff-zeros">${'0'.repeat(diffZeros(i))}…</div>
+          <div class="mine-diff-label">${d.name}</div>
+        </button>
+      `).join('')}
+    </div>
+
+    <div class="mine-info-row"><span class="label">Target prefix:</span><span class="value">${'0'.repeat(zeros)}…</span></div>
+    <div class="mine-info-row"><span class="label">Expected attempts:</span><span class="value">${fmtInt(diffExpectedAttempts(diffIdx))}</span></div>
+    <div class="mine-info-row"><span class="label">Est. time at your rate:</span><span class="value" style="color:var(--purple)">${fmtTime(soloMineEstimatedSec(diffIdx))}</span></div>
+    <div class="mine-info-row"><span class="label">Cost to attempt:</span><span class="value">${fmt(cost)} H</span></div>
+    <div class="mine-info-row"><span class="label">Reward if found:</span><span class="value" style="color:var(--green)">${fmt(reward)} H</span></div>
+
+    ${soloMineState.active || soloMineState.outputLines.length > 0 ? `
+      <div class="mine-stats">
+        <div class="mine-stat"><div class="mine-stat-label">Attempts</div><div class="mine-stat-value" id="mineAttempts">${fmtInt(soloMineState.attempts)}</div></div>
+        <div class="mine-stat"><div class="mine-stat-label">Hashrate</div><div class="mine-stat-value" id="mineHashrate">0 H/s</div></div>
+        <div class="mine-stat"><div class="mine-stat-label">Elapsed</div><div class="mine-stat-value" id="mineElapsed">0s</div></div>
+      </div>
+      <div class="mine-output" id="mineOutput"></div>
+    ` : ''}
+
+    <button class="mine-start-btn ${soloMineState.active ? 'cancel' : ''}" id="mineStartBtn" ${!soloMineState.active && !canAfford ? 'disabled' : ''}>
+      ${soloMineState.active ? 'CANCEL' : (canAfford ? 'START MINING' : 'INSUFFICIENT HASHES')}
+    </button>
+  `;
+
+  body.querySelectorAll('.mine-diff-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (soloMineState.active) return;
+      soloMineState.difficulty = parseInt(btn.dataset.diff);
+      soloMineState.outputLines = [];
+      soloMineState.attempts = 0;
+      renderSoloMine();
+    });
+  });
+  document.getElementById('mineStartBtn').addEventListener('click', () => {
+    if (soloMineState.active) cancelSoloMine();
+    else startSoloMine();
+  });
+  // Update transient stats if mining
+  if (soloMineState.active) updateSoloMineUI();
+}
+
+async function startSoloMine() {
+  const diffIdx = soloMineState.difficulty;
+  const cost = soloMineCost(diffIdx);
+  const reward = soloMineReward(diffIdx);
+  if (state.hashes < cost) return;
+  state.hashes -= cost;
+
+  // LOCK the zero count at the moment mining starts, so buying upgrades
+  // mid-mine doesn't shift the goalposts.
+  const zeros = diffZeros(diffIdx);
+  soloMineState.active = true;
+  soloMineState.attempts = 0;
+  soloMineState.startTime = Date.now();
+  soloMineState.outputLines = [];
+  renderSoloMine();
+
+  const target = '0'.repeat(zeros);
+  const targetProb = Math.pow(16, -zeros);
+  // Mining "rate" is locked to your website hashrate at start, with a floor
+  // so a brand-new player can still play EASY by clicking afterwards.
+  const playerRate = Math.max(1, totalHashRate(state) * effectiveProductionMult(state));
+
+  let nonce = Math.floor(Math.random() * 1e9);
+  let lastTickTime = performance.now();
+  // Visual tick rate adapts to player rate so high-rate players get a lively stream
+  const tickInterval = Math.max(33, Math.min(200, 1000 / playerRate));
+
+  while (soloMineState.active) {
+    const now = performance.now();
+    const dt = (now - lastTickTime) / 1000;
+    lastTickTime = now;
+
+    // Accumulate simulated attempts at the PLAYER'S hashrate.
+    // No actual SHA-256 enumeration — the rate is what your website says it is.
+    const newAttempts = playerRate * dt;
+    soloMineState.attempts += newAttempts;
+
+    // P(find at least one block this tick) = 1 − (1−p)^n, stable as 1 − e^(−np)
+    const pFind = 1 - Math.exp(-newAttempts * targetProb);
+
+    if (Math.random() < pFind) {
+      // BLOCK FOUND — try to brute-force a real matching hash for display,
+      // fall back to manufactured one for high difficulties.
+      let foundHash = await findRealHashWithPrefix(target, 200000);
+      if (!foundHash) foundHash = manufactureMatchingHash(target);
+      soloMineState.outputLines.unshift({ hash: foundHash, hit: true });
+      if (soloMineState.outputLines.length > 14) soloMineState.outputLines.pop();
+      state.hashes += reward;
+      state.totalHashes += reward;
+      toast('⛏️ BLOCK FOUND!', `+${fmt(reward)} H · ${fmtInt(soloMineState.attempts)} attempts`);
+      soloMineState.active = false;
+      updateSoloMineUI();
+      renderStats();
+      save();
+      setTimeout(() => {
+        if (document.getElementById('soloMineModal').classList.contains('active')) renderSoloMine();
+      }, 2500);
+      return;
+    }
+
+    // One real SHA-256 per tick for visual variety
+    const hash = await sha256Hex('solo-' + zeros + '-' + nonce++);
+    soloMineState.outputLines.unshift({ hash, hit: false });
+    if (soloMineState.outputLines.length > 14) soloMineState.outputLines.pop();
+
+    updateSoloMineUI();
+    await new Promise(r => setTimeout(r, tickInterval));
+  }
+  updateSoloMineUI();
+}
+
+function updateSoloMineUI() {
+  const elapsed = (Date.now() - soloMineState.startTime) / 1000;
+  const hashrate = soloMineState.attempts / Math.max(0.1, elapsed);
+  const a = document.getElementById('mineAttempts');
+  const r = document.getElementById('mineHashrate');
+  const t = document.getElementById('mineElapsed');
+  const o = document.getElementById('mineOutput');
+  if (a) a.textContent = fmtInt(soloMineState.attempts);
+  if (r) r.textContent = fmt(hashrate) + ' H/s';
+  if (t) t.textContent = elapsed.toFixed(1) + 's';
+  if (o) {
+    o.innerHTML = soloMineState.outputLines.slice(0, 10).map(l =>
+      `<div class="mine-output-line ${l.hit ? 'hit' : ''}">${l.hit ? '★ BLOCK ★ ' : ''}${l.hash}</div>`
+    ).join('');
+  }
+}
+
+function cancelSoloMine() {
+  soloMineState.active = false;
+  toast('CANCELLED', 'Mining stopped. Cost is not refunded.');
+}
+
+// =====================================================
+// STOCK MARKET — HSHC token speculation minigame
+// =====================================================
+const STOCK_HISTORY_LEN = 120;     // points kept for the chart
+const STOCK_TICK_MS = 1000;        // price moves once per second
+let _stockTrend = 0;               // short-term drift (decays toward 0)
+let _stockTrendDecay = 0.985;      // 1.5% decay per tick (~minute half-life)
+
+function stockPrice()      { return state.stock.price; }
+function stockHoldingsVal(){ return state.stock.hshcOwned * state.stock.price; }
+
+// One tick of price evolution. Random walk + slow sine + active trend.
+function stockTick() {
+  const noise   = (Math.random() - 0.5) * 0.05;          // ±2.5% per tick
+  const sine    = Math.sin(Date.now() / 45000) * 0.012;  // slow 45-sec wave
+  const trend   = _stockTrend;
+  const newPrice = state.stock.price * (1 + noise + sine + trend);
+  // Clamp to sane range
+  state.stock.price = Math.max(1, Math.min(1e12, newPrice));
+  state.stock.history.push(state.stock.price);
+  if (state.stock.history.length > STOCK_HISTORY_LEN) state.stock.history.shift();
+  _stockTrend *= _stockTrendDecay;
+  // Re-render modal if open
+  if (document.getElementById('stockModal').classList.contains('active')) {
+    renderStock();
+  }
+}
+
+// Apply a one-time price shock + optional follow-on trend
+function stockShock(multiplier, trendBoost = 0) {
+  state.stock.price *= multiplier;
+  state.stock.price = Math.max(1, Math.min(1e12, state.stock.price));
+  _stockTrend += trendBoost;
+  state.stock.history.push(state.stock.price);
+  if (state.stock.history.length > STOCK_HISTORY_LEN) state.stock.history.shift();
+}
+
+// Hook called from applyEffectPayload so events move the market
+function reactStockToEvent(name) {
+  if (name.includes('Bull Run'))     stockShock(1.15,  0.005);   // pump + uptrend
+  else if (name.includes('Elon'))    stockShock(1.30,  0);       // hard spike
+  else if (name.includes('ETF'))     stockShock(1.50,  0.008);   // huge pump
+  else if (name.includes('Hard Fork')) stockShock(Math.random() < 0.5 ? 1.25 : 0.75, 0);
+  else if (name.includes('USB'))     stockShock(1.10,  0);
+  else if (name.includes('China'))   stockShock(0.65, -0.005);
+  else if (name.includes('SEC'))     stockShock(0.75,  0);
+  else if (name.includes('FBI'))     stockShock(0.70, -0.003);
+  else if (name.includes('Fire'))    stockShock(0.85,  0);
+  else if (name.includes('Heat'))    stockShock(0.92,  0);
+}
+
+function openStock()  { document.getElementById('stockModal').classList.add('active'); renderStock(); }
+function closeStock() { document.getElementById('stockModal').classList.remove('active'); }
+
+function priceChangePct(windowTicks) {
+  const h = state.stock.history;
+  if (h.length < 2) return 0;
+  const old = h[Math.max(0, h.length - 1 - windowTicks)];
+  const now = h[h.length - 1];
+  return (now - old) / old;
+}
+
+function renderStockChart() {
+  const w = 600, h = 90;
+  const hist = state.stock.history;
+  if (hist.length < 2) return `<svg viewBox="0 0 ${w} ${h}"></svg>`;
+  const max = Math.max(...hist);
+  const min = Math.min(...hist);
+  const range = max - min || 1;
+  const xStep = w / (hist.length - 1);
+  const points = hist.map((p, i) =>
+    `${(i * xStep).toFixed(1)},${(h - ((p - min) / range) * h).toFixed(1)}`
+  ).join(' ');
+  // Area path for fill
+  const areaPoints = points + ` ${w},${h} 0,${h}`;
+  const change = hist[hist.length - 1] - hist[0];
+  const color = change >= 0 ? '#3fb950' : '#f85149';
+  const fillColor = change >= 0 ? 'rgba(63,185,80,0.15)' : 'rgba(248,81,73,0.15)';
+  return `
+    <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      <polygon points="${areaPoints}" fill="${fillColor}" />
+      <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2"/>
+    </svg>
+  `;
+}
+
+function renderStock() {
+  const body = document.getElementById('stockBody');
+  const price = state.stock.price;
+  const owned = state.stock.hshcOwned;
+  const value = stockHoldingsVal();
+  const avg = state.stock.avgBuyPrice;
+  const unrealized = owned > 0 ? (price - avg) * owned : 0;
+  const unrealizedPct = avg > 0 ? ((price - avg) / avg) * 100 : 0;
+  const change1m = priceChangePct(60) * 100;
+
+  body.innerHTML = `
+    <div class="stock-price-display">
+      <div class="stock-price">${fmt(price)} H</div>
+      <div class="stock-price-sub">per HSHC</div>
+      <div class="stock-change ${change1m >= 0 ? 'up' : 'down'}">
+        ${change1m >= 0 ? '▲' : '▼'} ${Math.abs(change1m).toFixed(2)}% (1m)
+      </div>
+    </div>
+
+    <div class="stock-chart">${renderStockChart()}</div>
+
+    <div class="stock-portfolio">
+      <div class="stock-row"><span class="lbl">Holdings</span><span class="val">${fmt(owned)} HSHC</span></div>
+      <div class="stock-row"><span class="lbl">Market value</span><span class="val">${fmt(value)} H</span></div>
+      <div class="stock-row"><span class="lbl">Avg buy price</span><span class="val">${owned > 0 ? fmt(avg) + ' H' : '—'}</span></div>
+      <div class="stock-row"><span class="lbl">Unrealized P&amp;L</span><span class="val ${unrealized >= 0 ? 'up' : 'down'}">${owned > 0 ? (unrealized >= 0 ? '+' : '') + fmt(unrealized) + ' H (' + unrealizedPct.toFixed(1) + '%)' : '—'}</span></div>
+      <div class="stock-row"><span class="lbl">Lifetime realized</span><span class="val ${state.stock.realized >= 0 ? 'up' : 'down'}">${(state.stock.realized >= 0 ? '+' : '') + fmt(state.stock.realized)} H</span></div>
+    </div>
+
+    <div class="stock-controls">
+      <input type="number" class="stock-amount-input" id="stockAmount" placeholder="HSHC amount" min="0" step="1">
+      <button class="stock-trade-btn buy"  id="stockBuyBtn">BUY</button>
+      <button class="stock-trade-btn sell" id="stockSellBtn" ${owned === 0 ? 'disabled' : ''}>SELL</button>
+    </div>
+
+    <div class="stock-quick">
+      <button class="stock-quick-btn" data-q="buy-1">+1</button>
+      <button class="stock-quick-btn" data-q="buy-10">+10</button>
+      <button class="stock-quick-btn" data-q="buy-100">+100</button>
+      <button class="stock-quick-btn" data-q="buy-max">BUY MAX</button>
+      <button class="stock-quick-btn" data-q="sell-all" ${owned === 0 ? 'disabled' : ''}>SELL ALL</button>
+    </div>
+  `;
+
+  document.getElementById('stockBuyBtn').addEventListener('click', () => stockBuy());
+  document.getElementById('stockSellBtn').addEventListener('click', () => stockSell());
+  body.querySelectorAll('.stock-quick-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const q = b.dataset.q;
+      if (q === 'buy-1')   stockBuy(1);
+      if (q === 'buy-10')  stockBuy(10);
+      if (q === 'buy-100') stockBuy(100);
+      if (q === 'buy-max') stockBuy(Math.floor(state.hashes / state.stock.price));
+      if (q === 'sell-all') stockSell(state.stock.hshcOwned);
+    });
+  });
+}
+
+function stockBuy(amount) {
+  if (amount === undefined) {
+    const input = document.getElementById('stockAmount');
+    amount = parseFloat(input.value);
+  }
+  if (!amount || amount <= 0) { toast('NOPE', 'Enter a valid amount'); return; }
+  const cost = amount * state.stock.price;
+  if (cost > state.hashes) { toast('NOPE', 'Not enough hashes'); return; }
+  // Update avg buy price (weighted)
+  const owned = state.stock.hshcOwned;
+  const newOwned = owned + amount;
+  state.stock.avgBuyPrice = (state.stock.avgBuyPrice * owned + state.stock.price * amount) / newOwned;
+  state.stock.hshcOwned = newOwned;
+  state.hashes -= cost;
+  toast('BUY ' + fmt(amount), `for ${fmt(cost)} H @ ${fmt(state.stock.price)}/HSHC`);
+  renderStock();
+  renderStats();
+  save();
+}
+function stockSell(amount) {
+  if (amount === undefined) {
+    const input = document.getElementById('stockAmount');
+    amount = parseFloat(input.value);
+  }
+  if (!amount || amount <= 0) { toast('NOPE', 'Enter a valid amount'); return; }
+  if (amount > state.stock.hshcOwned) amount = state.stock.hshcOwned;
+  const proceeds = amount * state.stock.price;
+  const profit = (state.stock.price - state.stock.avgBuyPrice) * amount;
+  state.stock.hshcOwned -= amount;
+  state.stock.realized += profit;
+  state.hashes += proceeds;
+  if (state.stock.hshcOwned === 0) state.stock.avgBuyPrice = 0;
+  toast('SELL ' + fmt(amount), `${proceeds >= 0 ? '+' : ''}${fmt(proceeds)} H (${profit >= 0 ? '+' : ''}${fmt(profit)} P&L)`);
+  renderStock();
+  renderStats();
+  save();
+}
+
+// =====================================================
+// SETTINGS MODAL
+// =====================================================
+const FEED_SPEED_OPTIONS = [
+  { value: 5,      label: 'Calm',     sub: '5 Hz' },
+  { value: 30,     label: 'Normal',   sub: '30 Hz' },
+  { value: 60,     label: 'Frantic',  sub: '60 Hz' },
+  { value: 'real', label: 'Real Rate', sub: 'no cap' },
+];
+
+function openSettings()  { document.getElementById('settingsModal').classList.add('active'); renderSettings(); }
+function closeSettings() { document.getElementById('settingsModal').classList.remove('active'); }
+
+function renderSettings() {
+  const body = document.getElementById('settingsBody');
+  const s = state.settings;
+  body.innerHTML = `
+    <div class="settings-section">
+      <div class="settings-section-title">Live Feed Speed</div>
+      <div class="settings-segments">
+        ${FEED_SPEED_OPTIONS.map(o => `
+          <button class="seg-btn ${s.feedSpeedHz === o.value ? 'selected' : ''}" data-feed="${o.value}">
+            <span class="seg-btn-label">${o.label}</span>
+            <span class="seg-btn-sub">${o.sub}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Spawns &amp; Events</div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-row-label">Bonus Spawns</div>
+          <div class="toggle-row-desc">🍕 🐋 💎 popups you can click for a buff</div>
+        </div>
+        <div class="toggle-switch ${s.bonusesEnabled ? 'on' : ''}" data-toggle="bonusesEnabled"></div>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-row-label">Random Events</div>
+          <div class="toggle-row-desc">🚔 raids, 🐂 bull runs, 🔥 datacenter fires</div>
+        </div>
+        <div class="toggle-switch ${s.eventsEnabled ? 'on' : ''}" data-toggle="eventsEnabled"></div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Save Data</div>
+      <div class="settings-actions">
+        <button class="settings-action-btn" id="exportSaveBtn">📤 Export</button>
+        <button class="settings-action-btn" id="importSaveBtn">📥 Import</button>
+        <button class="settings-action-btn danger" id="resetSaveBtn">⚠ Reset</button>
+      </div>
+    </div>
+  `;
+
+  body.querySelectorAll('.seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.feed;
+      state.settings.feedSpeedHz = (v === 'real') ? 'real' : parseInt(v);
+      save();
+      renderSettings();
+    });
+  });
+  body.querySelectorAll('.toggle-switch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      const key = sw.dataset.toggle;
+      state.settings[key] = !state.settings[key];
+      save();
+      renderSettings();
+    });
+  });
+  document.getElementById('exportSaveBtn').addEventListener('click', exportSave);
+  document.getElementById('importSaveBtn').addEventListener('click', importSave);
+  document.getElementById('resetSaveBtn').addEventListener('click', () => {
+    if (confirm('Wipe all your progress? Your trees thank you in advance.')) {
+      localStorage.removeItem(SAVE_KEY);
+      location.reload();
+    }
+  });
+}
+
+async function exportSave() {
+  const json = JSON.stringify(state);
+  try {
+    await navigator.clipboard.writeText(json);
+    toast('EXPORTED', 'Save data copied to clipboard');
+  } catch {
+    // Fallback: show in prompt
+    prompt('Copy this save data:', json);
+  }
+}
+
+function importSave() {
+  const json = prompt('Paste your exported save data:');
+  if (!json) return;
+  try {
+    const parsed = JSON.parse(json);
+    if (typeof parsed !== 'object' || parsed === null) throw new Error('not an object');
+    localStorage.setItem(SAVE_KEY, json);
+    toast('IMPORTED', 'Reloading...');
+    setTimeout(() => location.reload(), 800);
+  } catch (e) {
+    toast('IMPORT FAILED', 'That doesn\'t look like valid save data.');
+  }
+}
+
+// =====================================================
+// SAVE / LOAD
+// =====================================================
+const SAVE_KEY = 'hashcoin-clicker-save';
+
+function save() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.warn('Save failed', e);
+  }
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    const loaded = JSON.parse(raw);
+    Object.assign(state, loaded);
+    // Defensive defaults
+    state.miners ??= {};
+    state.clickUpgrades ??= {};
+    state.achievements ??= {};
+    state.activeEffects ??= [];
+    state.nextBonusAt ??= Date.now() + 45000;
+    state.nextEventAt ??= Date.now() + 120000;
+    state.settings ??= {};
+    state.settings.feedSpeedHz ??= 30;
+    state.settings.bonusesEnabled ??= true;
+    state.settings.eventsEnabled ??= true;
+    state.cheats ??= {};
+    state.stock ??= {};
+    state.stock.hshcOwned   ??= 0;
+    state.stock.avgBuyPrice ??= 0;
+    state.stock.realized    ??= 0;
+    state.stock.price       ??= 100;
+    state.stock.history     ??= [state.stock.price];
+  } catch (e) {
+    console.warn('Load failed', e);
+  }
+}
+
+// =====================================================
+// UI: RENDER
+// =====================================================
+let currentTab = 'miners';
+
+function $(id) { return document.getElementById(id); }
+
+function renderStats() {
+  const rate = totalHashRate(state) * effectiveProductionMult(state);
+  $('balanceAmount').textContent = fmt(state.hashes);
+  $('perClickStat').textContent = fmt(state.perClick * state.perClickMult * effectiveClickMult(state)) + ' H';
+  $('hashRateStat').textContent = fmt(rate) + ' H/s';
+  $('totalHashesStat').textContent = fmtInt(state.totalHashes);
+  $('totalClicksStat').textContent = fmtInt(state.totalClicks);
+
+  // Compare to Antminer S19 = 110 TH/s = 1.1e14 H/s
+  const antminer = 1.1e14;
+  const pct = (rate / antminer) * 100;
+  $('hashRateCompare').textContent =
+    rate === 0 ? 'vs Antminer S19: -∞%'
+    : 'vs Antminer S19: ' + pct.toExponential(2) + '%';
+
+  const kwh = kWhUsed(state);
+  const co2 = carbonKg(state);
+  const cost = electricityCost(state);
+  $('electricityStat').textContent = '$' + fmt(cost);
+  $('electricitySub').textContent = fmt(kwh) + ' kWh consumed';
+  $('carbonStat').textContent = fmt(co2) + ' kg CO₂';
+  $('carbonSub').textContent = '≈ ' + fmt(co2 / 21) + ' trees needed/yr';
+
+  // Grid strain meter: log-scale based on hashrate
+  const strain = gridStrain(state);
+  $('energyFill').style.width = (strain * 100) + '%';
+  $('strainSub').textContent = strainStatus(strain);
+}
+
+// Normalized 0–1 grid strain. Maxes around 10 GH/s.
+function gridStrain(s) {
+  const rate = totalHashRate(s) * effectiveProductionMult(s);
+  return rate === 0 ? 0 : Math.min(1, Math.log10(rate + 1) / 10);
+}
+function strainStatus(strain) {
+  if (strain < 0.25) return 'negligible load';
+  if (strain < 0.50) return 'moderate load';
+  if (strain < 0.75) return 'high load — outages likely';
+  if (strain < 0.90) return 'near critical — frequent outages';
+  return 'OVERLOAD — brownouts imminent';
+}
+
+function renderShop() {
+  const content = $('shopContent');
+  content.innerHTML = '';
+
+  if (currentTab === 'miners') {
+    // Show owned + next two locked
+    let firstLockedShown = false;
+    MINERS.forEach((m, i) => {
+      const owned = state.miners[m.id] || 0;
+      const prevOwned = i === 0 ? 1 : (state.miners[MINERS[i-1].id] || 0);
+      // Lock rule: hide miners more than 1 tier beyond what player has unlocked
+      const locked = i > 0 && prevOwned === 0 && firstLockedShown;
+      if (locked) return;
+      if (i > 0 && prevOwned === 0) firstLockedShown = true;
+
+      const cost = minerCost(m, owned);
+      const canAfford = state.hashes >= cost;
+      const isNewlyAvailable = canAfford && owned === 0;
+
+      const div = document.createElement('div');
+      div.className = 'upgrade'
+        + (canAfford ? ' affordable' : ' too-expensive')
+        + (owned > 0 ? ' purchased-once' : '')
+        + (isNewlyAvailable ? ' pulse' : '');
+      div.innerHTML = `
+        <div class="upgrade-icon">${m.icon}</div>
+        <div class="upgrade-info">
+          <div class="upgrade-name">${m.name}</div>
+          <div class="upgrade-desc">+${fmt(m.rate)} H/s each</div>
+        </div>
+        <div class="upgrade-meta">
+          <div class="upgrade-cost ${canAfford ? '' : 'cant-afford'}">${fmt(cost)} H</div>
+          <div class="upgrade-owned">owned: ${owned}</div>
+        </div>
+        <div class="tooltip">${m.flavor}</div>
+      `;
+      div.addEventListener('click', () => buyMiner(m.id));
+      content.appendChild(div);
+    });
+  } else {
+    CLICK_UPGRADES.forEach(u => {
+      const purchased = state.clickUpgrades[u.id];
+      const canAfford = state.hashes >= u.cost;
+      const div = document.createElement('div');
+      div.className = 'upgrade'
+        + (purchased ? ' purchased-once' : '')
+        + (purchased ? '' : (canAfford ? ' affordable pulse' : ' too-expensive'));
+      const effectLabel = u.effect === 'mult' ? `×${u.value}` : `+${u.value}`;
+      div.innerHTML = `
+        <div class="upgrade-icon">${u.icon}</div>
+        <div class="upgrade-info">
+          <div class="upgrade-name">${u.name}</div>
+          <div class="upgrade-desc">${purchased ? '✓ purchased' : `${effectLabel} click power`}</div>
+        </div>
+        <div class="upgrade-meta">
+          ${purchased ? '<div class="upgrade-cost" style="color:var(--green)">OWNED</div>' :
+            `<div class="upgrade-cost ${canAfford ? '' : 'cant-afford'}">${fmt(u.cost)} H</div>`}
+        </div>
+        <div class="tooltip">${u.desc}</div>
+      `;
+      if (!purchased) {
+        div.addEventListener('click', () => buyClickUpgrade(u.id));
+      }
+      content.appendChild(div);
+    });
+  }
+}
+
+function renderAchievements() {
+  const list = $('achievementsList');
+  list.innerHTML = '';
+  ACHIEVEMENTS.forEach(a => {
+    const unlocked = state.achievements[a.id];
+    const hidden = a.secret && !unlocked;
+    const div = document.createElement('div');
+    div.className = 'achievement' + (unlocked ? ' unlocked' : '') + (hidden ? ' secret' : '');
+    div.innerHTML = `
+      <div class="achievement-name">${unlocked ? '★' : '☆'} ${hidden ? '???' : a.name}</div>
+      <div class="achievement-desc">${hidden ? '(secret achievement)' : a.desc}</div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function renderTicker() {
+  const ticker = $('ticker');
+  const items = TICKER_ITEMS.slice();
+  // Inject reactive headlines that match the current state
+  for (const fn of REACTIVE_HEADLINES) {
+    const headline = fn(state);
+    if (headline) items.push(headline);
+  }
+  // Shuffle for variety
+  items.sort(() => Math.random() - 0.5);
+  ticker.innerHTML = items.map(t => `<span class="ticker-item">${t}</span>`).join('');
+}
+
+// =====================================================
+// ACTIONS
+// =====================================================
+function buyMiner(id) {
+  const m = MINERS.find(x => x.id === id);
+  const owned = state.miners[id] || 0;
+  const cost = minerCost(m, owned);
+  if (state.hashes < cost) return;
+  state.hashes -= cost;
+  state.miners[id] = owned + 1;
+  toast('PURCHASED', m.name + ' #' + (owned + 1));
+  renderAll();
+  // First time owning this miner unlocks new ticker headlines
+  if (owned === 0) renderTicker();
+  save();
+}
+
+function buyClickUpgrade(id) {
+  const u = CLICK_UPGRADES.find(x => x.id === id);
+  if (state.clickUpgrades[id]) return;
+  if (state.hashes < u.cost) return;
+  state.hashes -= u.cost;
+  state.clickUpgrades[id] = true;
+  if (u.effect === 'plus') state.perClick += u.value;
+  else state.perClickMult *= u.value;
+  toast('UPGRADE', u.name);
+  renderAll();
+  save();
+}
+
+async function handleClick(e) {
+  const base = state.perClick * state.perClickMult * effectiveClickMult(state);
+  // CRIT ROLL: 1% chance per click. 1-in-10 crits is a MEGA crit (100×).
+  const critRoll = Math.random();
+  let value = base, critType = null;
+  if (critRoll < 0.001) {
+    value = base * 100;
+    critType = 'megacrit';
+    state.cheats._anyMegaCrit = true;
+    e.currentTarget.classList.add('megacrit-flash');
+    setTimeout(() => e.currentTarget.classList.remove('megacrit-flash'), 700);
+  } else if (critRoll < 0.01) {
+    value = base * 10;
+    critType = 'crit';
+    state.cheats._anyCrit = true;
+    e.currentTarget.classList.add('crit-flash');
+    setTimeout(() => e.currentTarget.classList.remove('crit-flash'), 400);
+  }
+  state.hashes += value;
+  state.totalHashes += value;
+  state.totalClicks += 1;
+
+  // Floating number with crit styling
+  spawnFloat(e, '+' + fmt(value), critType);
+
+  // Compute a real SHA-256 for satire authenticity
+  const hash = await sha256Hex('click-' + state.totalClicks + '-' + Math.random());
+  addHashFeed(critType === 'megacrit' ? '⭐' : critType === 'crit' ? '✨' : '👆', hash);
+
+  // Milestone toasts (just flavor, no mechanical effect)
+  if (CLICK_MILESTONES[state.totalClicks]) {
+    toast(state.totalClicks.toLocaleString() + ' CLICKS', CLICK_MILESTONES[state.totalClicks]);
+  }
+
+  renderStats();
+  // Re-render shop occasionally so cost colors update
+  if (state.totalClicks % 5 === 0) renderShop();
+  if (state.totalClicks % 10 === 0) save();
+  checkAchievements();
+}
+
+function spawnFloat(e, text, critType) {
+  const float = document.createElement('div');
+  float.className = 'float-text' + (critType ? ' ' + critType : '');
+  if (critType === 'megacrit') {
+    float.textContent = '⭐ MEGA CRIT! ' + text;
+  } else if (critType === 'crit') {
+    float.textContent = '✨ CRIT ' + text;
+  } else if (Math.random() < 0.06) {
+    // 6% chance to use a flavor string instead of the boring "+N"
+    const flavor = CLICK_FLAVORS[Math.floor(Math.random() * CLICK_FLAVORS.length)];
+    float.textContent = flavor.replace('{n}', text.replace('+', ''));
+  } else {
+    float.textContent = text;
+  }
+  const rect = e.currentTarget.getBoundingClientRect();
+  const x = e.clientX - rect.left + rect.left;
+  const y = e.clientY - rect.top + rect.top;
+  float.style.left = (x - 20) + 'px';
+  float.style.top = (y - 20) + 'px';
+  document.body.appendChild(float);
+  setTimeout(() => float.remove(), 1200);
+}
+
+function checkAchievements() {
+  let unlocked = false;
+  for (const a of ACHIEVEMENTS) {
+    if (!state.achievements[a.id] && a.check(state)) {
+      state.achievements[a.id] = true;
+      toast('ACHIEVEMENT', a.name);
+      unlocked = true;
+    }
+  }
+  if (unlocked) renderAchievements();
+}
+
+function toast(title, body) {
+  const container = $('toastContainer');
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = `<div class="toast-title">${title}</div>${body}`;
+  container.appendChild(t);
+  setTimeout(() => t.remove(), 4200);
+}
+
+function renderAll() {
+  renderStats();
+  renderShop();
+  renderAchievements();
+}
+
+// =====================================================
+// GAME LOOP
+// =====================================================
+let lastTick = Date.now();
+function gameLoop() {
+  const now = Date.now();
+  const dt = (now - lastTick) / 1000;
+  lastTick = now;
+
+  cleanupEffects();
+  const rate = totalHashRate(state) * effectiveProductionMult(state);
+  if (rate > 0) {
+    const gained = rate * dt;
+    state.hashes += gained;
+    state.totalHashes += gained;
+  }
+
+  renderStats();
+  renderActiveEffects();   // refresh countdown timers
+  updateFeedStatus();      // PAUSED / 50% / boost badge on the feed
+  checkAchievements();
+  maybeSpawnBonus();
+  maybeSpawnEvent();
+  maybeBrownout();
+}
+
+let shopRefreshTick = 0;
+function shopRefreshLoop() {
+  shopRefreshTick++;
+  if (shopRefreshTick % 2 === 0) renderShop();
+}
+
+// =====================================================
+// EASTER EGGS  (don't read this section if you want to find them yourself!)
+// =====================================================
+
+function fireCheat(id, hashes, title, body) {
+  if (state.cheats[id]) {
+    toast('ALREADY FOUND', 'no double-dipping, friend');
+    return;
+  }
+  state.cheats[id] = true;
+  state.hashes += hashes;
+  state.totalHashes += hashes;
+  toast(title, body);
+  renderStats();
+  checkAchievements();
+  save();
+}
+
+// 1. Konami code: ↑↑↓↓←→←→BA
+const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let _konamiIdx = 0;
+// 2. Type "satoshi" anywhere
+let _typeBuffer = '';
+
+function installKeyboardEasterEggs() {
+  document.addEventListener('keydown', (e) => {
+    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+
+    // Konami progress
+    if (key === KONAMI[_konamiIdx]) {
+      _konamiIdx++;
+      if (_konamiIdx === KONAMI.length) {
+        _konamiIdx = 0;
+        fireCheat('konami', 1_000_000, '🎮 KONAMI MASTER', '+1,000,000 H. nobody saw that.');
+      }
+    } else {
+      _konamiIdx = (key === KONAMI[0]) ? 1 : 0;
+    }
+
+    // Typed-word buffer (any letter)
+    if (key.length === 1 && /[a-z]/.test(key)) {
+      _typeBuffer = (_typeBuffer + key).slice(-12);
+      if (_typeBuffer.endsWith('satoshi')) {
+        fireCheat('satoshiName', 21000, '🥷 SAID HIS NAME', '+21,000 H — one milli-bitcoin in flat hashes.');
+        _typeBuffer = '';
+      }
+    }
+  });
+}
+
+// 3. Click the ₿ logo 7 times within 2 seconds
+let _logoClicks = 0;
+let _logoTimer = null;
+function installLogoEasterEgg() {
+  const logo = document.querySelector('.logo-symbol');
+  if (!logo) return;
+  logo.addEventListener('click', () => {
+    _logoClicks++;
+    clearTimeout(_logoTimer);
+    _logoTimer = setTimeout(() => { _logoClicks = 0; }, 2000);
+    if (_logoClicks >= 7) {
+      _logoClicks = 0;
+      fireCheat('satoshiTap', 777777, '🥷 WHERE IS HE?', 'Satoshi tips his hat. +777,777 H');
+    }
+  });
+}
+
+// 4. Devtools easter egg
+function printConsoleEasterEgg() {
+  const big = 'color: #f7931a; font-size: 28px; font-weight: bold; text-shadow: 2px 2px 0 rgba(0,0,0,0.3);';
+  const med = 'color: #f7931a; font-size: 13px;';
+  const dim = 'color: #7a8693; font-size: 11px; font-style: italic;';
+  console.log('%c⛏ HASHCOIN CLICKER', big);
+  console.log('%cPoking around? Cool. There are 3 easter eggs hidden in this game.', med);
+  console.log('%c· one is a classic from the 80s', dim);
+  console.log('%c· one is right under your nose', dim);
+  console.log('%c· one you have to say out loud (well, type)', dim);
+  console.log('%c\nNo source-snooping! Find them properly. ♥', dim);
+}
+
+// =====================================================
+// INIT
+// =====================================================
+function init() {
+  load();
+  initHashFeed();
+  renderAll();
+  renderTicker();
+
+  $('hashButton').addEventListener('click', handleClick);
+
+  document.querySelectorAll('.shop-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentTab = tab.dataset.tab;
+      renderShop();
+    });
+  });
+
+  $('resetBtn').addEventListener('click', () => {
+    if (confirm('Wipe all your progress? Your trees thank you in advance.')) {
+      localStorage.removeItem(SAVE_KEY);
+      location.reload();
+    }
+  });
+
+  // Solo mine modal
+  $('soloMineBtn').addEventListener('click', openSoloMine);
+  $('soloMineCloseBtn').addEventListener('click', closeSoloMine);
+  $('soloMineModal').addEventListener('click', (e) => {
+    if (e.target.id === 'soloMineModal') closeSoloMine();
+  });
+
+  // Settings modal
+  $('settingsBtn').addEventListener('click', openSettings);
+  $('settingsCloseBtn').addEventListener('click', closeSettings);
+  $('settingsModal').addEventListener('click', (e) => {
+    if (e.target.id === 'settingsModal') closeSettings();
+  });
+
+  // Stock market modal
+  $('stockMarketBtn').addEventListener('click', openStock);
+  $('stockCloseBtn').addEventListener('click', closeStock);
+  $('stockModal').addEventListener('click', (e) => {
+    if (e.target.id === 'stockModal') closeStock();
+  });
+
+  // First bonus/event timers (only set if not loaded from save)
+  if (!state.nextBonusAt) state.nextBonusAt = Date.now() + 45000;
+  if (!state.nextEventAt) state.nextEventAt = Date.now() + 120000;
+
+  // Easter eggs
+  installKeyboardEasterEggs();
+  installLogoEasterEgg();
+  printConsoleEasterEgg();
+
+  setInterval(gameLoop, 100);        // 10 fps game tick
+  setInterval(shopRefreshLoop, 500); // refresh shop affordability twice a sec
+  setInterval(save, 5000);           // autosave every 5 sec
+  setInterval(stockTick, STOCK_TICK_MS); // HSHC price evolves once per second
+  minerFeedTick();                   // self-scheduling: adapts to your hashrate
+
+  // Keyboard: space to click
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && document.activeElement.tagName !== 'BUTTON') {
+      e.preventDefault();
+      $('hashButton').click();
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
