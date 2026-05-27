@@ -2,7 +2,7 @@
 
 cookie clicker but for actual bitcoin mining. you click a button, you buy ridiculous mining hardware, your co2 emissions go up.
 
-→ **[play it](https://ewoudvv.github.io/hashcoin-clicker-game/)**
+**[play it](https://ewoudvv.github.io/hashcoin-clicker-game/)** | also on **[itch.io](https://ewoudvv.itch.io/hashcoin-clicker)**
 
 ![screenshot](screenshot.png)
 
