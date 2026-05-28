@@ -655,6 +655,13 @@
     border-color: var(--red);
     color: var(--red);
   }
+  .effect-chip.combo {
+    background: linear-gradient(135deg, rgba(247, 147, 26, 0.25), rgba(255, 105, 180, 0.25));
+    border-color: var(--gold);
+    color: var(--gold);
+    font-weight: bold;
+    box-shadow: 0 0 16px rgba(247, 147, 26, 0.4);
+  }
   .effect-chip .effect-time {
     color: var(--muted);
     font-size: 10px;
@@ -1232,6 +1239,11 @@
       <div class="divider"></div>
 
       <div class="achievements-section">
+        <h3>Milestones</h3>
+        <div id="milestonesList"></div>
+      </div>
+
+      <div class="achievements-section" style="margin-top:16px">
         <h3>Achievements</h3>
         <div id="achievementsList"></div>
       </div>
@@ -1344,6 +1356,7 @@ const state = {
     eventsEnabled: true,
   },
   cheats: {},                // tracks which easter eggs have fired
+  milestones: {},            // total-hash thresholds you've crossed (soft prestige)
   stock: {
     hshcOwned: 0,
     avgBuyPrice: 0,
@@ -1431,7 +1444,7 @@ const BONUSES = [
   { id: 'diamond', icon: '💎', name: 'Diamond Hands',    color: 'purple', weight: 18, effect: { type: 'prodmult',  value: 2, duration: 60 }, flavor: '2× production for 60s. NEVER SELL.' },
   { id: 'moon',    icon: '🚀', name: 'To The Moon',      color: 'gold',   weight: 15, effect: { type: 'lumpsum',   value: 90 },           flavor: '+90s of production. Number went up.' },
   { id: 'satoshi', icon: '🥷', name: 'Satoshi Sighting', color: 'purple', weight: 10, effect: { type: 'prodmult',  value: 5, duration: 30 }, flavor: '5× production for 30s. He vanished again.' },
-  { id: 'rug',     icon: '🪤', name: 'Rug Pull',         color: 'red',    weight: 10, effect: { type: 'penalty',   value: 0.85 },          flavor: 'Lose 15% of your balance. The dev is gone.' },
+  { id: 'rug',     icon: '🪤', name: 'Rug Pull',         color: 'red',    weight: 5,  effect: { type: 'penalty',   value: 0.97 },          flavor: 'Lose 3% of your balance. Small dev, small rug.' },
 ];
 
 // =====================================================
@@ -1467,6 +1480,21 @@ const SOLO_DIFFICULTIES = [
   { name: 'MEDIUM', targetSec: 30   },
   { name: 'HARD',   targetSec: 300  },  // 5 min
   { name: 'INSANE', targetSec: 1800 },  // 30 min
+];
+
+// =====================================================
+// MILESTONES — "soft prestige". Cross total-hash thresholds for permanent
+// buffs. Never resets, never costs anything — just rewards long-term play.
+// =====================================================
+const MILESTONES = [
+  { id: 'm1', threshold: 1e6,  name: '1M total hashes',   bonus: 'prod',  value: 0.05, desc: '+5% production' },
+  { id: 'm2', threshold: 1e7,  name: '10M total hashes',  bonus: 'click', value: 0.10, desc: '+10% click value' },
+  { id: 'm3', threshold: 1e8,  name: '100M total hashes', bonus: 'prod',  value: 0.10, desc: '+10% production' },
+  { id: 'm4', threshold: 1e9,  name: '1B total hashes',   bonus: 'crit',  value: 0.005,desc: '+0.5% crit chance' },
+  { id: 'm5', threshold: 1e10, name: '10B total hashes',  bonus: 'click', value: 0.25, desc: '+25% click value' },
+  { id: 'm6', threshold: 1e11, name: '100B total hashes', bonus: 'prod',  value: 0.25, desc: '+25% production' },
+  { id: 'm7', threshold: 1e12, name: '1T total hashes',   bonus: 'crit',  value: 0.01, desc: '+1% crit chance' },
+  { id: 'm8', threshold: 1e13, name: '10T total hashes',  bonus: 'prod',  value: 0.50, desc: '+50% production' },
 ];
 
 // =====================================================
@@ -1587,6 +1615,42 @@ function totalHashRate(s) {
   return rate;
 }
 
+// Each click is worth: base click value + ~0.5 sec of your current production.
+// Means clicking stays relevant deep into the game instead of becoming pointless.
+function clickValue(s) {
+  const passiveBonus = totalHashRate(s) * 0.5;
+  const base = s.perClick * s.perClickMult + passiveBonus;
+  return base * effectiveClickMult(s) * milestoneClickMult(s);
+}
+
+// Milestone aggregators — sum unlocked bonuses by type.
+function milestoneProdMult(s) {
+  let bonus = 0;
+  for (const m of MILESTONES) if (s.milestones[m.id] && m.bonus === 'prod') bonus += m.value;
+  return 1 + bonus;
+}
+function milestoneClickMult(s) {
+  let bonus = 0;
+  for (const m of MILESTONES) if (s.milestones[m.id] && m.bonus === 'click') bonus += m.value;
+  return 1 + bonus;
+}
+function milestoneCritBonus(s) {
+  let bonus = 0;
+  for (const m of MILESTONES) if (s.milestones[m.id] && m.bonus === 'crit') bonus += m.value;
+  return bonus;
+}
+function checkMilestones() {
+  let unlocked = false;
+  for (const m of MILESTONES) {
+    if (!state.milestones[m.id] && state.totalHashes >= m.threshold) {
+      state.milestones[m.id] = true;
+      toast('🏆 MILESTONE', m.name + ' · ' + m.desc);
+      unlocked = true;
+    }
+  }
+  if (unlocked) { renderStats(); save(); }
+}
+
 // Satire stats
 function kWhUsed(s) {
   // Pretend each hash takes some absurd amount of joules. Real bitcoin mining is ~kWh/TH.
@@ -1624,7 +1688,15 @@ async function sha256Hex(input) {
 // =====================================================
 function effectiveProductionMult(s) {
   let m = 1;
-  for (const e of s.activeEffects) if (e.type === 'prodmult') m *= e.value;
+  let boostCount = 0; // count of CONCURRENT positive boosts (for combo bonus)
+  for (const e of s.activeEffects) {
+    if (e.type === 'prodmult') {
+      m *= e.value;
+      if (e.value > 1) boostCount++;
+    }
+  }
+  // 2+ concurrent buffs = combo. Each extra one adds +50% on top of the stack.
+  if (boostCount >= 2) m *= 1 + (boostCount - 1) * 0.5;
   return m;
 }
 function effectiveClickMult(s) {
@@ -1731,6 +1803,24 @@ function renderActiveEffects() {
     }
     // Only update the countdown text — does NOT re-trigger the animation
     chip.querySelector('.effect-time').textContent = time;
+  }
+
+  // Add a combo chip when 2+ positive prodmult effects are active simultaneously
+  const boostCount = state.activeEffects.filter(e => e.type === 'prodmult' && e.value > 1).length;
+  const existingCombo = container.querySelector('.effect-chip.combo');
+  if (boostCount >= 2) {
+    const mult = 1 + (boostCount - 1) * 0.5;
+    if (!existingCombo) {
+      const combo = document.createElement('div');
+      combo.className = 'effect-chip combo';
+      combo.innerHTML = `<span class="effect-label">🔥 ${boostCount}× COMBO</span> <span class="effect-time">×${mult.toFixed(1)} extra</span>`;
+      container.appendChild(combo);
+    } else {
+      existingCombo.querySelector('.effect-label').textContent = `🔥 ${boostCount}× COMBO`;
+      existingCombo.querySelector('.effect-time').textContent = `×${mult.toFixed(1)} extra`;
+    }
+  } else if (existingCombo) {
+    existingCombo.remove();
   }
 }
 
@@ -2502,6 +2592,7 @@ function load() {
     state.settings.bonusesEnabled ??= true;
     state.settings.eventsEnabled ??= true;
     state.cheats ??= {};
+    state.milestones ??= {};
     state.stock ??= {};
     state.stock.hshcOwned   ??= 0;
     state.stock.avgBuyPrice ??= 0;
@@ -2521,9 +2612,9 @@ let currentTab = 'miners';
 function $(id) { return document.getElementById(id); }
 
 function renderStats() {
-  const rate = totalHashRate(state) * effectiveProductionMult(state);
+  const rate = totalHashRate(state) * effectiveProductionMult(state) * milestoneProdMult(state);
   $('balanceAmount').textContent = fmt(state.hashes);
-  $('perClickStat').textContent = fmt(state.perClick * state.perClickMult * effectiveClickMult(state)) + ' H';
+  $('perClickStat').textContent = fmt(clickValue(state)) + ' H';
   $('hashRateStat').textContent = fmt(rate) + ' H/s';
   $('totalHashesStat').textContent = fmtInt(state.totalHashes);
   $('totalClicksStat').textContent = fmtInt(state.totalClicks);
@@ -2630,6 +2721,28 @@ function renderShop() {
   }
 }
 
+function renderMilestones() {
+  const list = $('milestonesList');
+  if (!list) return;
+  list.innerHTML = '';
+  // Show all unlocked + the next 1-2 locked ones
+  let lockedShown = 0;
+  for (const m of MILESTONES) {
+    const unlocked = state.milestones[m.id];
+    if (!unlocked && lockedShown >= 2) break;
+    if (!unlocked) lockedShown++;
+    const div = document.createElement('div');
+    div.className = 'achievement' + (unlocked ? ' unlocked' : '');
+    const progress = unlocked ? '' :
+      ` <span style="color:var(--muted);font-size:9px">(${fmt(state.totalHashes)} / ${fmt(m.threshold)})</span>`;
+    div.innerHTML = `
+      <div class="achievement-name">${unlocked ? '🏆' : '🔒'} ${m.name}</div>
+      <div class="achievement-desc">${m.desc}${progress}</div>
+    `;
+    list.appendChild(div);
+  }
+}
+
 function renderAchievements() {
   const list = $('achievementsList');
   list.innerHTML = '';
@@ -2690,17 +2803,18 @@ function buyClickUpgrade(id) {
 }
 
 async function handleClick(e) {
-  const base = state.perClick * state.perClickMult * effectiveClickMult(state);
-  // CRIT ROLL: 1% chance per click. 1-in-10 crits is a MEGA crit (100×).
+  const base = clickValue(state);
+  // CRIT ROLL: 1% chance per click (+ milestone bonus). 1-in-10 of crits is MEGA.
+  const critBonus = milestoneCritBonus(state);
   const critRoll = Math.random();
   let value = base, critType = null;
-  if (critRoll < 0.001) {
+  if (critRoll < 0.001 + critBonus * 0.1) {
     value = base * 100;
     critType = 'megacrit';
     state.cheats._anyMegaCrit = true;
     e.currentTarget.classList.add('megacrit-flash');
     setTimeout(() => e.currentTarget.classList.remove('megacrit-flash'), 700);
-  } else if (critRoll < 0.01) {
+  } else if (critRoll < 0.01 + critBonus) {
     value = base * 10;
     critType = 'crit';
     state.cheats._anyCrit = true;
@@ -2778,6 +2892,7 @@ function renderAll() {
   renderStats();
   renderShop();
   renderAchievements();
+  renderMilestones();
 }
 
 // =====================================================
@@ -2790,7 +2905,7 @@ function gameLoop() {
   lastTick = now;
 
   cleanupEffects();
-  const rate = totalHashRate(state) * effectiveProductionMult(state);
+  const rate = totalHashRate(state) * effectiveProductionMult(state) * milestoneProdMult(state);
   if (rate > 0) {
     const gained = rate * dt;
     state.hashes += gained;
@@ -2799,8 +2914,10 @@ function gameLoop() {
 
   renderStats();
   renderActiveEffects();   // refresh countdown timers
+  renderMilestones();      // refresh progress text on next locked milestone
   updateFeedStatus();      // PAUSED / 50% / boost badge on the feed
   checkAchievements();
+  checkMilestones();       // unlock permanent buffs at total-hashes thresholds
   maybeSpawnBonus();
   maybeSpawnEvent();
   maybeBrownout();
