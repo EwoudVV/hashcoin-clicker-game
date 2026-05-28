@@ -1316,7 +1316,7 @@
         <span>📈 HSHC Market</span>
         <button class="modal-close" id="stockCloseBtn">×</button>
       </div>
-      <div class="modal-subtitle">Speculate on the HashCoin token. Price reacts to world events. No, it isn't actually worth anything.</div>
+      <div class="modal-subtitle">Trade HSHC tokens for real hashes. Price swings with in-game events — bull runs spike it, FBI raids tank it. Buy low, sell high.</div>
       <div id="stockBody"></div>
     </div>
   </div>
@@ -2061,7 +2061,9 @@ const soloMineState = {
   attempts: 0,
   startTime: 0,
   outputLines: [],
+  cooldownEnd: 0,   // ms timestamp — can't start a new mine until now > this
 };
+const SOLO_COOLDOWN_MS = 5 * 60 * 1000; // 5 min cooldown after a successful find
 
 // Pick the number of leading zeros so expected solve time at the player's
 // current hashrate is close to the tier's target. Clamped to [1, 10].
@@ -2156,9 +2158,17 @@ function renderSoloMine() {
       <div class="mine-output" id="mineOutput"></div>
     ` : ''}
 
-    <button class="mine-start-btn ${soloMineState.active ? 'cancel' : ''}" id="mineStartBtn" ${!soloMineState.active && !canAfford ? 'disabled' : ''}>
-      ${soloMineState.active ? 'CANCEL' : (canAfford ? 'START MINING' : 'INSUFFICIENT HASHES')}
-    </button>
+    ${(() => {
+      const cooldownLeft = Math.max(0, soloMineState.cooldownEnd - Date.now());
+      const inCooldown = !soloMineState.active && cooldownLeft > 0;
+      const sec = Math.ceil(cooldownLeft / 1000);
+      const label = soloMineState.active ? 'CANCEL'
+        : inCooldown ? `COOLDOWN — ${Math.floor(sec/60)}:${(sec%60).toString().padStart(2,'0')}`
+        : canAfford ? 'START MINING'
+        : 'INSUFFICIENT HASHES';
+      const disabled = (!soloMineState.active && (!canAfford || inCooldown)) ? 'disabled' : '';
+      return `<button class="mine-start-btn ${soloMineState.active ? 'cancel' : ''}" id="mineStartBtn" ${disabled}>${label}</button>`;
+    })()}
   `;
 
   body.querySelectorAll('.mine-diff-btn').forEach(btn => {
@@ -2182,6 +2192,12 @@ async function startSoloMine() {
   const diffIdx = soloMineState.difficulty;
   const cost = soloMineCost(diffIdx);
   const reward = soloMineReward(diffIdx);
+  // Cooldown gate — set after each successful find
+  if (Date.now() < soloMineState.cooldownEnd) {
+    const left = Math.ceil((soloMineState.cooldownEnd - Date.now()) / 1000);
+    toast('COOLDOWN', `${left}s before you can mine again`);
+    return;
+  }
   if (state.hashes < cost) return;
   state.hashes -= cost;
 
@@ -2227,7 +2243,8 @@ async function startSoloMine() {
       if (soloMineState.outputLines.length > 14) soloMineState.outputLines.pop();
       state.hashes += reward;
       state.totalHashes += reward;
-      toast('⛏️ BLOCK FOUND!', `+${fmt(reward)} H · ${fmtInt(soloMineState.attempts)} attempts`);
+      soloMineState.cooldownEnd = Date.now() + SOLO_COOLDOWN_MS;
+      toast('⛏️ BLOCK FOUND!', `+${fmt(reward)} H · ${fmtInt(soloMineState.attempts)} attempts · 5min cooldown`);
       soloMineState.active = false;
       updateSoloMineUI();
       renderStats();
@@ -2921,6 +2938,12 @@ function gameLoop() {
   maybeSpawnBonus();
   maybeSpawnEvent();
   maybeBrownout();
+
+  // Live-update solo mine modal during cooldown so the countdown ticks
+  const modal = document.getElementById('soloMineModal');
+  if (modal && modal.classList.contains('active') && !soloMineState.active && Date.now() < soloMineState.cooldownEnd) {
+    renderSoloMine();
+  }
 }
 
 let shopRefreshTick = 0;
