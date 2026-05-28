@@ -1066,6 +1066,71 @@
     box-shadow: 0 0 24px rgba(63, 185, 80, 0.35);
   }
   .stock-market-btn:hover { box-shadow: 0 0 32px rgba(63, 185, 80, 0.55); }
+  .blocks-btn {
+    position: static;
+    background: linear-gradient(135deg, #4d3580, var(--purple));
+    border: 1px solid var(--purple);
+    border-radius: 6px;
+    padding: 10px 18px;
+    color: white;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    box-shadow: 0 0 24px rgba(163, 113, 247, 0.35);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .blocks-btn:hover { transform: translateY(-2px); box-shadow: 0 0 32px rgba(163, 113, 247, 0.55); }
+  .blocks-btn #blocksBtnCount {
+    background: rgba(0,0,0,0.4);
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* === BLOCKS MODAL === */
+  .block-section { margin-bottom: 16px; }
+  .block-section-title {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .block-upgrade {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 6px;
+  }
+  .block-upgrade.affordable { border-color: var(--purple); }
+  .block-upgrade.owned { background: rgba(163, 113, 247, 0.08); }
+  .block-upgrade-name { font-size: 12px; font-weight: bold; color: var(--text); }
+  .block-upgrade-desc { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .block-upgrade-buy {
+    background: var(--purple);
+    border: none;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .block-upgrade-buy:hover:not(:disabled) { filter: brightness(1.15); }
+  .block-upgrade-buy:disabled { opacity: 0.4; cursor: not-allowed; }
 
   /* === STOCK MARKET UI === */
   .stock-price-display {
@@ -1194,6 +1259,12 @@
       </div>
 
       <div class="stat-block">
+        <div class="stat-label">⛏ Blocks Found</div>
+        <div class="stat-value" id="blocksStat" style="color: var(--purple)">0</div>
+        <div class="stat-sub" id="blocksSub">lifetime: 0</div>
+      </div>
+
+      <div class="stat-block">
         <div class="stat-label">Per Click</div>
         <div class="stat-value small" id="perClickStat">1 H</div>
       </div>
@@ -1255,6 +1326,7 @@
     <!-- CENTER: CLICKER -->
     <main class="clicker-panel">
       <div class="action-buttons">
+        <button class="blocks-btn" id="blocksBtn">⛏ Blocks <span id="blocksBtnCount">0</span></button>
         <button class="stock-market-btn" id="stockMarketBtn">📈 Market</button>
         <button class="solo-mine-btn" id="soloMineBtn">🎯 Solo Mine</button>
       </div>
@@ -1309,6 +1381,18 @@
     </div>
   </div>
 
+  <!-- Blocks Modal -->
+  <div class="modal-overlay" id="blocksModal">
+    <div class="modal-content">
+      <div class="modal-title">
+        <span>⛏ Blocks</span>
+        <button class="modal-close" id="blocksCloseBtn">×</button>
+      </div>
+      <div class="modal-subtitle">You found these the real way — by computing a hash with enough leading zeros. Spend them on permanent upgrades.</div>
+      <div id="blocksBody"></div>
+    </div>
+  </div>
+
   <!-- Stock Market Modal -->
   <div class="modal-overlay" id="stockModal">
     <div class="modal-content">
@@ -1357,6 +1441,15 @@ const state = {
   },
   cheats: {},                // tracks which easter eggs have fired
   milestones: {},            // total-hash thresholds you've crossed (soft prestige)
+  blocks: 0,                 // ⛏ block currency — found probabilistically while mining
+  totalBlocksFound: 0,
+  minerLevels: {},           // miner id -> level (each level = +2% production)
+  blockPerks: {              // one-time / leveled unlocks bought with blocks
+    critLevel: 0,            // 0..5 (each = +0.5% crit chance)
+    autoCollect: false,
+    fastSolo: false,
+  },
+  hashesSinceLastBlock: 0,   // counter feeding block-discovery probability
   stock: {
     hshcOwned: 0,
     avgBuyPrice: 0,
@@ -1610,9 +1703,36 @@ function minerCost(miner, owned) {
 function totalHashRate(s) {
   let rate = 0;
   for (const m of MINERS) {
-    rate += (s.miners[m.id] || 0) * m.rate;
+    const lvlBonus = 1 + (s.minerLevels[m.id] || 0) * 0.02; // +2% per block-level
+    rate += (s.miners[m.id] || 0) * m.rate * lvlBonus;
   }
   return rate;
+}
+
+// Block difficulty: targets ~5 min between blocks at your current hashrate.
+// (Mirrors Bitcoin's difficulty-adjusted block time.)
+function blockDifficulty(s) {
+  const rate = totalHashRate(s) * effectiveProductionMult(s);
+  return Math.max(300, rate * 300); // floor 300 hashes so early-game still gets blocks
+}
+
+async function checkBlockDiscovery(hashesGained) {
+  if (hashesGained <= 0) return;
+  state.hashesSinceLastBlock += hashesGained;
+  const difficulty = blockDifficulty(state);
+  // Per-tick probability: 1 − e^(−n/difficulty), same exponential trick as solo mine
+  const pBlock = 1 - Math.exp(-hashesGained / difficulty);
+  if (Math.random() < pBlock) {
+    state.blocks++;
+    state.totalBlocksFound++;
+    state.hashesSinceLastBlock = 0;
+    // Generate a real hash starting with a few zeros for the toast (visual only)
+    const zeros = Math.min(8, Math.max(2, Math.floor(Math.log(difficulty) / Math.log(16))));
+    let foundHash = await findRealHashWithPrefix('0'.repeat(zeros), 5000);
+    if (!foundHash) foundHash = manufactureMatchingHash('0'.repeat(zeros));
+    toast('⛏ BLOCK FOUND! +1 ⛏', foundHash.slice(0, 20) + '…');
+    save();
+  }
 }
 
 // Each click is worth: base click value + ~0.5 sec of your current production.
@@ -1870,6 +1990,12 @@ function spawnBonus(bonus) {
     el.remove();
   });
   document.body.appendChild(el);
+  // Block-perk: auto-collect bonuses after 1 second (still skip the rugpull trap)
+  if (state.blockPerks.autoCollect && bonus.id !== 'rug') {
+    setTimeout(() => {
+      if (el.parentNode) { el.click(); }
+    }, 1000);
+  }
   setTimeout(() => { if (el.parentNode) el.classList.add('expiring'); }, 10000);
   setTimeout(() => { if (el.parentNode) el.remove(); }, 14000);
 }
@@ -2243,8 +2369,9 @@ async function startSoloMine() {
       if (soloMineState.outputLines.length > 14) soloMineState.outputLines.pop();
       state.hashes += reward;
       state.totalHashes += reward;
-      soloMineState.cooldownEnd = Date.now() + SOLO_COOLDOWN_MS;
-      toast('⛏️ BLOCK FOUND!', `+${fmt(reward)} H · ${fmtInt(soloMineState.attempts)} attempts · 5min cooldown`);
+      const cdMult = state.blockPerks.fastSolo ? 0.5 : 1;
+      soloMineState.cooldownEnd = Date.now() + SOLO_COOLDOWN_MS * cdMult;
+      toast('⛏️ BLOCK FOUND!', `+${fmt(reward)} H · ${fmtInt(soloMineState.attempts)} attempts · ${cdMult < 1 ? '2.5' : '5'}min cooldown`);
       soloMineState.active = false;
       updateSoloMineUI();
       renderStats();
@@ -2471,6 +2598,135 @@ function stockSell(amount) {
 }
 
 // =====================================================
+// BLOCKS MODAL — spending the ⛏ block currency on permanent upgrades
+// =====================================================
+const CRIT_PERK_COSTS = [5, 10, 20, 40, 80];
+
+function minerLevelCost(level) { return level + 1; }      // 1, 2, 3, ...
+function MAX_MINER_LEVEL() { return 10; }
+
+function openBlocks()  { document.getElementById('blocksModal').classList.add('active'); renderBlocks(); }
+function closeBlocks() { document.getElementById('blocksModal').classList.remove('active'); }
+
+function renderBlocks() {
+  const body = document.getElementById('blocksBody');
+  if (!body) return;
+  const b = state.blocks;
+
+  // --- Miner levels (only show miners you own) ---
+  const ownedMiners = MINERS.filter(m => (state.miners[m.id] || 0) > 0);
+  const minerLvlHtml = ownedMiners.length === 0
+    ? '<div style="font-size:11px;color:var(--muted);padding:8px">Buy at least one miner to start leveling them up.</div>'
+    : ownedMiners.map(m => {
+        const lvl = state.minerLevels[m.id] || 0;
+        const max = MAX_MINER_LEVEL();
+        const cost = minerLevelCost(lvl);
+        const atMax = lvl >= max;
+        const canAfford = b >= cost;
+        return `<div class="block-upgrade ${canAfford && !atMax ? 'affordable' : ''}">
+          <div>
+            <div class="block-upgrade-name">${m.icon} ${m.name} — Lvl ${lvl}/${max}</div>
+            <div class="block-upgrade-desc">+${(lvl * 2)}% production · ${atMax ? 'maxed' : `next: +2% for ${cost} ⛏`}</div>
+          </div>
+          <button class="block-upgrade-buy" data-action="levelup" data-id="${m.id}" ${atMax || !canAfford ? 'disabled' : ''}>
+            ${atMax ? '★ MAX' : `${cost} ⛏`}
+          </button>
+        </div>`;
+      }).join('');
+
+  // --- Crit chance perk (5 levels) ---
+  const critLvl = state.blockPerks.critLevel;
+  const critMax = CRIT_PERK_COSTS.length;
+  const critCost = critLvl < critMax ? CRIT_PERK_COSTS[critLvl] : null;
+  const critAfford = critCost !== null && b >= critCost;
+  const critHtml = `<div class="block-upgrade ${critAfford ? 'affordable' : ''} ${critLvl > 0 ? 'owned' : ''}">
+    <div>
+      <div class="block-upgrade-name">⚡ Lucky Hashing — Lvl ${critLvl}/${critMax}</div>
+      <div class="block-upgrade-desc">+${critLvl * 0.5}% crit chance · ${critLvl >= critMax ? 'maxed' : `next: +0.5% for ${critCost} ⛏`}</div>
+    </div>
+    <button class="block-upgrade-buy" data-action="crit" ${critLvl >= critMax || !critAfford ? 'disabled' : ''}>
+      ${critLvl >= critMax ? '★ MAX' : `${critCost} ⛏`}
+    </button>
+  </div>`;
+
+  // --- One-time perks ---
+  const oneTime = [
+    { id: 'autoCollect', name: '🤖 Auto-Collect Bonuses', desc: 'Bonus popups auto-collect after 1s. Skips rugpulls.', cost: 25, owned: state.blockPerks.autoCollect },
+    { id: 'fastSolo',    name: '⏱ Half Solo-Mine Cooldown',  desc: 'Solo mine cooldown drops from 5min to 2.5min.',     cost: 30, owned: state.blockPerks.fastSolo },
+  ];
+  const oneTimeHtml = oneTime.map(p => `
+    <div class="block-upgrade ${p.owned ? 'owned' : (b >= p.cost ? 'affordable' : '')}">
+      <div>
+        <div class="block-upgrade-name">${p.name}</div>
+        <div class="block-upgrade-desc">${p.desc}</div>
+      </div>
+      <button class="block-upgrade-buy" data-action="perk" data-id="${p.id}" ${p.owned || b < p.cost ? 'disabled' : ''}>
+        ${p.owned ? '★ OWNED' : `${p.cost} ⛏`}
+      </button>
+    </div>
+  `).join('');
+
+  body.innerHTML = `
+    <div class="block-section">
+      <div class="block-section-title">You have ${b} ⛏ to spend (lifetime found: ${state.totalBlocksFound})</div>
+    </div>
+    <div class="block-section">
+      <div class="block-section-title">Miner Levels — permanent production boosts</div>
+      ${minerLvlHtml}
+    </div>
+    <div class="block-section">
+      <div class="block-section-title">Click Perks</div>
+      ${critHtml}
+    </div>
+    <div class="block-section">
+      <div class="block-section-title">One-Time Unlocks</div>
+      ${oneTimeHtml}
+    </div>
+  `;
+
+  body.querySelectorAll('.block-upgrade-buy').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      if (action === 'levelup') buyMinerLevel(btn.dataset.id);
+      else if (action === 'crit') buyCritPerk();
+      else if (action === 'perk') buyBlockPerk(btn.dataset.id);
+    });
+  });
+}
+
+function buyMinerLevel(id) {
+  const lvl = state.minerLevels[id] || 0;
+  if (lvl >= MAX_MINER_LEVEL()) return;
+  const cost = minerLevelCost(lvl);
+  if (state.blocks < cost) return;
+  state.blocks -= cost;
+  state.minerLevels[id] = lvl + 1;
+  const m = MINERS.find(x => x.id === id);
+  toast('⛏ LEVELED', `${m.name} → Lvl ${lvl + 1} (+${(lvl + 1) * 2}% production)`);
+  renderBlocks(); renderStats(); save();
+}
+function buyCritPerk() {
+  const lvl = state.blockPerks.critLevel;
+  if (lvl >= CRIT_PERK_COSTS.length) return;
+  const cost = CRIT_PERK_COSTS[lvl];
+  if (state.blocks < cost) return;
+  state.blocks -= cost;
+  state.blockPerks.critLevel = lvl + 1;
+  toast('⛏ LUCKY HASHING', `Lvl ${lvl + 1} — +${(lvl + 1) * 0.5}% crit chance`);
+  renderBlocks(); renderStats(); save();
+}
+function buyBlockPerk(id) {
+  if (state.blockPerks[id]) return;
+  const perks = { autoCollect: { cost: 25, name: 'Auto-Collect Bonuses' }, fastSolo: { cost: 30, name: 'Fast Solo Cooldown' } };
+  const p = perks[id];
+  if (!p || state.blocks < p.cost) return;
+  state.blocks -= p.cost;
+  state.blockPerks[id] = true;
+  toast('⛏ UNLOCKED', p.name);
+  renderBlocks(); renderStats(); save();
+}
+
+// =====================================================
 // SETTINGS MODAL
 // =====================================================
 const FEED_SPEED_OPTIONS = [
@@ -2610,6 +2866,14 @@ function load() {
     state.settings.eventsEnabled ??= true;
     state.cheats ??= {};
     state.milestones ??= {};
+    state.blocks ??= 0;
+    state.totalBlocksFound ??= 0;
+    state.minerLevels ??= {};
+    state.blockPerks ??= {};
+    state.blockPerks.critLevel ??= 0;
+    state.blockPerks.autoCollect ??= false;
+    state.blockPerks.fastSolo ??= false;
+    state.hashesSinceLastBlock ??= 0;
     state.stock ??= {};
     state.stock.hshcOwned   ??= 0;
     state.stock.avgBuyPrice ??= 0;
@@ -2633,6 +2897,9 @@ function renderStats() {
   $('balanceAmount').textContent = fmt(state.hashes);
   $('perClickStat').textContent = fmt(clickValue(state)) + ' H';
   $('hashRateStat').textContent = fmt(rate) + ' H/s';
+  if ($('blocksStat')) $('blocksStat').textContent = state.blocks;
+  if ($('blocksSub')) $('blocksSub').textContent = 'lifetime: ' + state.totalBlocksFound;
+  if ($('blocksBtnCount')) $('blocksBtnCount').textContent = state.blocks;
   $('totalHashesStat').textContent = fmtInt(state.totalHashes);
   $('totalClicksStat').textContent = fmtInt(state.totalClicks);
 
@@ -2821,8 +3088,8 @@ function buyClickUpgrade(id) {
 
 async function handleClick(e) {
   const base = clickValue(state);
-  // CRIT ROLL: 1% chance per click (+ milestone bonus). 1-in-10 of crits is MEGA.
-  const critBonus = milestoneCritBonus(state);
+  // CRIT ROLL: 1% chance per click (+ milestone bonus + block-perk bonus).
+  const critBonus = milestoneCritBonus(state) + (state.blockPerks.critLevel || 0) * 0.005;
   const critRoll = Math.random();
   let value = base, critType = null;
   if (critRoll < 0.001 + critBonus * 0.1) {
@@ -2927,6 +3194,7 @@ function gameLoop() {
     const gained = rate * dt;
     state.hashes += gained;
     state.totalHashes += gained;
+    checkBlockDiscovery(gained);
   }
 
   renderStats();
@@ -3078,6 +3346,13 @@ function init() {
   $('stockCloseBtn').addEventListener('click', closeStock);
   $('stockModal').addEventListener('click', (e) => {
     if (e.target.id === 'stockModal') closeStock();
+  });
+
+  // Blocks modal
+  $('blocksBtn').addEventListener('click', openBlocks);
+  $('blocksCloseBtn').addEventListener('click', closeBlocks);
+  $('blocksModal').addEventListener('click', (e) => {
+    if (e.target.id === 'blocksModal') closeBlocks();
   });
 
   // First bonus/event timers (only set if not loaded from save)
