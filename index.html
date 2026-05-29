@@ -1735,12 +1735,15 @@ async function checkBlockDiscovery(hashesGained) {
   }
 }
 
-// Each click is worth: base click value + ~0.5 sec of your current production.
-// Means clicking stays relevant deep into the game instead of becoming pointless.
+// Each click is worth: (base + 0.1s of your hashrate) × all click multipliers.
+// Putting the hashrate slice INSIDE the multiplier (was outside) means click
+// upgrades actually scale with progression. Capped at 30s of production per
+// click so maxed-out clicks don't make mining irrelevant.
 function clickValue(s) {
-  const passiveBonus = totalHashRate(s) * 0.5;
-  const base = s.perClick * s.perClickMult + passiveBonus;
-  return base * effectiveClickMult(s) * milestoneClickMult(s);
+  const base = s.perClick + totalHashRate(s) * 0.1;
+  const multiplied = base * s.perClickMult * effectiveClickMult(s) * milestoneClickMult(s);
+  const cap = totalHashRate(s) * 30;
+  return cap > 0 ? Math.min(multiplied, cap) : multiplied;
 }
 
 // Milestone aggregators — sum unlocked bonuses by type.
